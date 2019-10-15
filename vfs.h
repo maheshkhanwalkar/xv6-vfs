@@ -16,20 +16,22 @@ struct block_driver {
      * Read a sector from the block device
      * 
      * @param buffer - destination buffer of the read
-     * @param b_num - which block to read from
+     * @param device - device to read from
+     * @param b_num - which block to read
      * 
      * @return number of bytes read (-1 on failure)
      */
-    int (*bread)(void* buffer, int b_num);
+    int (*bread)(void* buffer, int device, int b_num);
 
     /**
      * Write a sector to the block device
      * 
      * @param buffer - data to write to the sector
-     * @param b_num - which block to write to
+     * @param device - device to write to
+     * @param b_num - which block to write
      * 
      * @return number of bytes written (-1 on failure)
      */ 
-    int (*bwrite)(void* buffer, int b_num);
+    int (*bwrite)(void* buffer, int device, int b_num);
 };
 
