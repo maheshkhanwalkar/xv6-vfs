@@ -78,3 +78,26 @@ struct block_driver {
      */ 
     int (*bwrite)(struct block_driver* self, void* buffer, int b_num);
 };
+
+/**
+ * Initialise the VFS subsystem
+ *
+ * This handles any initialisation and setup of data structures used by
+ * the VFS to maintain mappings and functionality.
+ */
+void vfs_init();
+
+
+/**
+ * Register a block driver
+ *
+ * Associate a block driver with the VFS, using a uniquely identifying name,
+ * which allows it to be referenced.
+ *
+ *   e.g. vfs_register_block("/dev/sda0", &my_block_drv)
+ *
+ * This name will be used later when a filesystem will be mounted, since the
+ * partition that will be read will be done via the block driver.
+ *
+ */
+void vfs_register_block(const char* name, struct block_driver* drv);

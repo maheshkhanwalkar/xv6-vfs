@@ -169,7 +169,7 @@ static int
 isdirempty(struct inode *dp)
 {
   int off;
-  struct dirent de;
+  struct dirent de = {};
 
   for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
     /*if(readi(dp, (char*)&de, off, sizeof(de)) != sizeof(de))
