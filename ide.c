@@ -12,6 +12,7 @@
 #include "sleeplock.h"
 #include "fs.h"
 #include "buf.h"
+#include "vfs.h"
 
 #define SECTOR_SIZE   512
 #define IDE_BSY       0x80
@@ -55,6 +56,18 @@ ideinit(void)
   initlock(&idelock, "ide");
   ioapicenable(IRQ_IDE, ncpu - 1);
   idewait(0);
+
+  struct block_driver* drv = (void*)kalloc();
+
+  // FIXME: actually read the partition table!!
+  drv->info.b_start = 0;
+  drv->info.b_end = 65535;
+
+  // Add function hooks
+  drv->bread = ide_bread;
+  drv->bwrite = ide_bwrite;
+
+  // TODO: register with VFS
 
   // Check if disk 1 is present
   outb(0x1f6, 0xe0 | (1<<4));
@@ -165,4 +178,14 @@ iderw(struct buf *b)
 
 
   release(&idelock);
+}
+
+static int ide_bread(struct block_driver* self, void* buffer, int b_num)
+{
+  // TODO: implement this
+}
+
+static int ide_bwrite(struct block_driver* self, void* buffer, int b_num)
+{
+  // TODO: implement this
 }

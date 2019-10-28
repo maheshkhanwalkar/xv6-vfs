@@ -3,8 +3,30 @@
 #pragma once
 
 /**
- * Block driver
+ * The size of a block that is assumed/used by the VFS
+ *
+ * This block size may or may not be larger than the actual block size on a particular
+ * type of disk. Therefore, it is the job of the block_driver to translate VFS_BLOCK_SIZE
+ * blocks (and block numbers) to internal block sizes and numbers.
  * 
+ */
+#define VFS_BLOCK_SIZE 512
+
+
+/**
+ * Partition information
+ *
+ * This struct contains the minimal information needed to represent a partition:
+ *   + b_start: the start block number on-disk for the partition
+ *   + b_end: the end block number on-disk for the partition
+ */
+struct partition {
+    int b_start, b_end;
+};
+
+/**
+ * Block driver
+ *
  * This struct specifies the required interface that all block drivers
  * need to conform to, so that they can be used by higher levels of the filesystem stack
  * 
@@ -12,26 +34,47 @@
  * block to be read from and written to the underlying device, respectively.
  */
 struct block_driver {
+
+    /**
+     * Partition information
+     *
+     * Which partition this block driver is operating on. Each partition on a disk should have
+     * its own block_driver structure ``instance''
+     *
+     * This information will be used to create an offset for block numbers, so the underlying bread
+     * and bwrite operations can exist per type-of-disk, rather than per-disk or per-partition
+     */
+    struct partition info;
+
+    /**
+     * Device number
+     *
+     * This is a device-specific (and driver specific) number, not something specified by the
+     * VFS layer. It can be used to identify a particular device, in case there are more than one
+     * of a particular type.
+     *
+     */
+    int device;
+
     /**
      * Read a sector from the block device
-     * 
+     *
+     * @param self - pointer to the containing structure
      * @param buffer - destination buffer of the read
-     * @param device - device to read from
      * @param b_num - which block to read
-     * 
+     *
      * @return number of bytes read (-1 on failure)
      */
-    int (*bread)(void* buffer, int device, int b_num);
+    int (*bread)(struct block_driver* self, void* buffer, int b_num);
 
     /**
      * Write a sector to the block device
-     * 
+     *
+     * @param self - pointer to the containing structure
      * @param buffer - data to write to the sector
-     * @param device - device to write to
      * @param b_num - which block to write
-     * 
+     *
      * @return number of bytes written (-1 on failure)
      */ 
-    int (*bwrite)(void* buffer, int device, int b_num);
+    int (*bwrite)(struct block_driver* self, void* buffer, int b_num);
 };
-
