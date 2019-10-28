@@ -73,9 +73,9 @@ fileclose(struct file *f)
   if(ff.type == FD_PIPE)
     pipeclose(ff.pipe, ff.writable);
   else if(ff.type == FD_INODE){
-    begin_op();
+    /*begin_op();
     iput(ff.ip);
-    end_op();
+    end_op();*/
   }
 }
 
@@ -84,9 +84,9 @@ int
 filestat(struct file *f, struct stat *st)
 {
   if(f->type == FD_INODE){
-    ilock(f->ip);
+    /*ilock(f->ip);
     stati(f->ip, st);
-    iunlock(f->ip);
+    iunlock(f->ip);*/
     return 0;
   }
   return -1;
@@ -96,18 +96,19 @@ filestat(struct file *f, struct stat *st)
 int
 fileread(struct file *f, char *addr, int n)
 {
-  int r;
+  //int r;
 
   if(f->readable == 0)
     return -1;
   if(f->type == FD_PIPE)
     return piperead(f->pipe, addr, n);
   if(f->type == FD_INODE){
-    ilock(f->ip);
+    /*ilock(f->ip);
     if((r = readi(f->ip, addr, f->off, n)) > 0)
       f->off += r;
-    iunlock(f->ip);
-    return r;
+    iunlock(f->ip);*/
+    //return r;
+    return 0;
   }
   panic("fileread");
 }
@@ -117,7 +118,7 @@ fileread(struct file *f, char *addr, int n)
 int
 filewrite(struct file *f, char *addr, int n)
 {
-  int r;
+  //int r;
 
   if(f->writable == 0)
     return -1;
@@ -130,7 +131,7 @@ filewrite(struct file *f, char *addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
+    /*int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
     int i = 0;
     while(i < n){
       int n1 = n - i;
@@ -150,7 +151,8 @@ filewrite(struct file *f, char *addr, int n)
         panic("short filewrite");
       i += r;
     }
-    return i == n ? n : -1;
+    return i == n ? n : -1;*/
+    return 0;
   }
   panic("filewrite");
 }

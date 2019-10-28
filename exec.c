@@ -10,7 +10,7 @@
 int
 exec(char *path, char **argv)
 {
-  char *s, *last;
+  /*char *s, *last;
   int i, off;
   uint argc, sz, sp, ustack[3+MAXARG+1];
   struct elfhdr elf;
@@ -19,9 +19,9 @@ exec(char *path, char **argv)
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
 
-  begin_op();
+  begin_op();*/
 
-  if((ip = namei(path)) == 0){
+  /*if((ip = namei(path)) == 0){
     end_op();
     cprintf("exec: fail\n");
     return -1;
@@ -109,6 +109,6 @@ exec(char *path, char **argv)
   if(ip){
     iunlockput(ip);
     end_op();
-  }
+  }*/
   return -1;
 }
