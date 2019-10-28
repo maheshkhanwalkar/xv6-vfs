@@ -13,6 +13,7 @@
 #include "fs.h"
 #include "buf.h"
 #include "vfs.h"
+#include "queue.h"
 
 #define SECTOR_SIZE   512
 #define IDE_BSY       0x80
@@ -25,15 +26,26 @@
 #define IDE_CMD_RDMUL 0xc4
 #define IDE_CMD_WRMUL 0xc5
 
+struct block {
+  void* buffer;
+  int device, start;
+  int op, done;
+};
+
 // idequeue points to the buf now being read/written to the disk.
 // idequeue->qnext points to the next buf to be processed.
 // You must hold idelock while manipulating queue.
 
 static struct spinlock idelock;
 static struct buf *idequeue;
+static queue_t q;
 
 static int havedisk1;
 static void idestart(struct buf*);
+
+// Hooks for VFS
+static int ide_bread(struct block_driver* self, void* buffer, int b_num);
+static int ide_bwrite(struct block_driver* self, void* buffer, int b_num);
 
 // Wait for IDE disk to become ready.
 static int
@@ -56,6 +68,9 @@ ideinit(void)
   initlock(&idelock, "ide");
   ioapicenable(IRQ_IDE, ncpu - 1);
   idewait(0);
+
+  // initialise the queue
+  q = queue_create();
 
   struct block_driver* drv = (void*)kalloc();
 
@@ -112,11 +127,67 @@ idestart(struct buf *b)
   }
 }
 
+static void
+ide_commit(struct block* b)
+{
+  if(b == 0) {
+    panic("ide_commit");
+  }
+
+  int s_bcount = VFS_BLOCK_SIZE / SECTOR_SIZE;
+  int sector = b->start * s_bcount;
+
+  int read_cmd = (s_bcount == 1) ? IDE_CMD_READ :  IDE_CMD_RDMUL;
+  int write_cmd = (s_bcount == 1) ? IDE_CMD_WRITE : IDE_CMD_WRMUL;
+
+  if (s_bcount > 7) {
+      panic("ide_commit: too many sectors per block");
+  }
+
+  idewait(0);
+  outb(0x3f6, 0);  // generate interrupt
+  outb(0x1f2, s_bcount);  // number of sectors
+  outb(0x1f3, sector & 0xff);
+  outb(0x1f4, (sector >> 8) & 0xff);
+  outb(0x1f5, (sector >> 16) & 0xff);
+  outb(0x1f6, 0xe0 | ((b->device&1)<<4) | ((sector>>24)&0x0f));
+
+  if(b->op == IDE_CMD_WRITE) {
+    outb(0x1f7, write_cmd);
+    outsl(0x1f0, b->buffer, VFS_BLOCK_SIZE / sizeof(long));
+  }
+  else {
+    outb(0x1f7, read_cmd);
+  }
+}
+
 // Interrupt handler.
 void
 ideintr(void)
 {
-  struct buf *b;
+  struct block* b;
+
+  acquire(&idelock);
+
+  if((b = queue_deq(q)) == 0){
+    release(&idelock);
+    return;
+  }
+
+  if(b->op == IDE_CMD_READ) {
+    insl(0x1f0, b->buffer, VFS_BLOCK_SIZE / 4);
+  }
+
+  b->done = 1;
+  wakeup(b);
+
+  if((b = queue_deq(q)) != 0) {
+    ide_commit(b);
+  }
+
+  release(&idelock);
+
+  /*struct buf *b;
 
   // First queued buffer is the active request.
   acquire(&idelock);
@@ -140,7 +211,7 @@ ideintr(void)
   if(idequeue != 0)
     idestart(idequeue);
 
-  release(&idelock);
+  release(&idelock);*/
 }
 
 //PAGEBREAK!
@@ -182,10 +253,48 @@ iderw(struct buf *b)
 
 static int ide_bread(struct block_driver* self, void* buffer, int b_num)
 {
-  // TODO: implement this
+  struct block* b = (void*)kalloc();
+
+  b->buffer = buffer;
+  b->device = self->device;
+  b->start = self->info.b_start + b_num;
+  b->op = IDE_CMD_READ;
+  b->done = 0;
+
+  acquire(&idelock);
+  queue_enq(q, b);
+
+  // process now, if its the only item in the queue
+  if(queue_peek(q) == b) {
+    ide_commit(b);
+  }
+
+  while(!b->done) {
+    sleep(b, &idelock);
+  }
+
+  release(&idelock);
+  return 0;
 }
 
 static int ide_bwrite(struct block_driver* self, void* buffer, int b_num)
 {
-  // TODO: implement this
+  struct block* b = (void*)kalloc();
+
+  b->buffer = buffer;
+  b->device = self->device;
+  b->start = self->info.b_start + b_num;
+  b->op = IDE_CMD_WRITE;
+  b->done = 0;
+
+  acquire(&idelock);
+  queue_enq(q, b);
+
+  // process now, if its the only item in the queue
+  if(queue_peek(q) == b) {
+    ide_commit(b);
+  }
+
+  release(&idelock);
+  return 0;
 }
