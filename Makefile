@@ -29,6 +29,7 @@ OBJS = \
 	vm.o\
 	queue.o\
 	vfs.o\
+	map.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf
