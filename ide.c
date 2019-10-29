@@ -83,6 +83,7 @@ ideinit(void)
   drv->bwrite = ide_bwrite;
 
   // TODO: register with VFS
+  vfs_register_block("/dev/sda", drv);
 
   // Check if disk 1 is present
   outb(0x1f6, 0xe0 | (1<<4));

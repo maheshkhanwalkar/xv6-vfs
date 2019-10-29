@@ -5,7 +5,7 @@
 #define BUCKET_CAPACITY 256
 
 struct entry {
-    void* key;
+    const void* key;
     void* value;
 };
 
@@ -29,7 +29,7 @@ map_t map_create()
     return m;
 }
 
-void map_put(map_t m, void* key, void* value, int (*hash)(void*), int (*equal)(void*, void*))
+void map_put(map_t m, const void* key, void* value, int (*hash)(const void*), int (*equal)(const void*, const void*))
 {
     if(m == 0) {
         return;
@@ -62,7 +62,7 @@ void map_put(map_t m, void* key, void* value, int (*hash)(void*), int (*equal)(v
     m->buckets[pos] = lk;
 }
 
-void* map_get(map_t m, void* key, int (*hash)(void*), int (*equal)(void*, void*))
+void* map_get(map_t m, const void* key, int (*hash)(const void*), int (*equal)(const void*, const void*))
 {
     if(m == 0) {
         return 0;
