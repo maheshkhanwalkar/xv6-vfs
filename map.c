@@ -60,6 +60,7 @@ void map_put(map_t m, const void* key, void* value, int (*hash)(const void*), in
     lk->e = e;
 
     m->buckets[pos] = lk;
+    m->size++;
 }
 
 void* map_get(map_t m, const void* key, int (*hash)(const void*), int (*equal)(const void*, const void*))
@@ -80,4 +81,35 @@ void* map_get(map_t m, const void* key, int (*hash)(const void*), int (*equal)(c
     }
 
     return 0;
+}
+
+int map_size(map_t m)
+{
+    if(m == 0) {
+        return 0;
+    }
+
+    return m->size;
+}
+
+void map_keys(map_t m, const void** buffer)
+{
+    if(m == 0) {
+        *buffer = 0;
+        return;
+    }
+
+    int pos = 0;
+
+    for(int i = 0; i < BUCKET_CAPACITY; i++)
+    {
+        link_t ptr = m->buckets[i];
+
+        while(ptr != 0) {
+            buffer[pos] = ptr->e.key;
+
+            pos++;
+            ptr = ptr->next;
+        }
+    }
 }

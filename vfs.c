@@ -78,12 +78,86 @@ struct vfs_inode {
     struct block_driver* drv;
 };
 
+static const char* vfs_rpath(const char* path)
+{
+    const char** keys = (void*)kalloc();
+    map_keys(root_map, (const void**)keys);
+
+    int* best = (void*)kalloc();
+    memset(best, 0, 4096);
+
+    int plen = strlen(path);
+    int klen = map_size(root_map);
+
+    for(int i = 0; i < plen; i++) {
+        for(int j = 0; j < klen; j++) {
+            // how good does each key match the path?
+            if(best[j] == i && path[i] == keys[j][i]) {
+                best[j]++;
+            }
+        }
+    }
+
+    int max = best[0];
+    int pos = 0;
+
+    for(int i = 1; i < klen; i++) {
+        if(best[i] > max) {
+            max = best[i];
+            pos = i;
+        }
+    }
+
+    const char* rpath = keys[pos];
+
+    // cleanup the allocations
+    kfree((void*)best);
+    kfree((void*)keys);
+
+    return rpath;
+}
+
+static char* vfs_rel(const char* path, const char* rpath)
+{
+    int pos = 0;
+
+    while(*rpath != '\0') {
+        if(*path != *rpath) {
+            break;
+        }
+
+        pos++;
+        path++;
+        rpath++;
+    }
+
+    // path and rpath are the same
+    if(*path == '\0') {
+        char* buffer = (void*)kalloc();
+
+        buffer[0] = '/';
+        buffer[1] = '\0';
+
+        return buffer;
+    }
+
+    int len = strlen(path);
+    char* buffer = (void*)kalloc();
+
+    buffer[0] = '/';
+    for(int i = 0; i < len; i++) {
+        buffer[i + 1] = path[i];
+    }
+
+    buffer[len + 1] = '\0';
+    return buffer;
+}
+
 struct vfs_inode* vfs_namei(const char* path)
 {
-    // TODO do longest prefix matching
-    // FIXME: exact path matching will not work most times
-
-    struct fs_binding* bind = map_get(root_map, path, hash, equal);
+    // Longest prefix matching path
+    const char* rpath = vfs_rpath(path);
+    struct fs_binding* bind = map_get(root_map, rpath, hash, equal);
 
     // bad path -- couldn't find a match in the VFS table
     // return a NULL inode, which should raise a trap/fault somewhere
@@ -91,11 +165,14 @@ struct vfs_inode* vfs_namei(const char* path)
         return 0;
     }
 
+    // compute the relative path for the filesystem
+    char* rel = vfs_rel(path, rpath);
     struct vfs_inode* vi = (void*)kalloc();
 
     vi->drv = bind->drv;
     vi->ops = bind->ops;
-    vi->ip = bind->ops->namei(path, vi->drv);
+    vi->ip = bind->ops->namei(rel, vi->drv);
 
+    kfree(rel);
     return vi;
 }
