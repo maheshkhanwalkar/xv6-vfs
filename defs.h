@@ -38,7 +38,7 @@ int             filestat(struct file*, struct stat*);
 int             filewrite(struct file*, char*, int n);
 
 // fs.c
-void            readsb(int dev, struct superblock *sb);
+/*void            readsb(int dev, struct superblock *sb);
 int             dirlink(struct inode*, char*, uint);
 struct inode*   dirlookup(struct inode*, char*, uint*);
 struct inode*   ialloc(uint, short);
@@ -54,7 +54,10 @@ struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
-int             writei(struct inode*, char*, uint, uint);
+int             writei(struct inode*, char*, uint, uint);*/
+
+// sfs.c
+void sfs_init();
 
 // ide.c
 void            ideinit(void);
@@ -85,10 +88,10 @@ void            lapicstartap(uchar, uint);
 void            microdelay(int);
 
 // log.c
-void            initlog(int dev);
-void            log_write(struct buf*);
-void            begin_op();
-void            end_op();
+//void            initlog(int dev);
+//void            log_write(struct buf*);
+//void            begin_op();
+//void            end_op();
 
 // mp.c
 extern int      ismp;

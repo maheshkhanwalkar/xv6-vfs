@@ -94,7 +94,7 @@ void vfs_init();
  * Associate a block driver with the VFS, using a uniquely identifying name,
  * which allows it to be referenced.
  *
- *   e.g. vfs_register_block("/dev/sda0", &my_block_drv)
+ *   e.g. vfs_register_block("sda0", &my_block_drv)
  *
  * This name will be used later when a filesystem will be mounted, since the
  * partition that will be read will be done via the block driver.
@@ -103,6 +103,41 @@ void vfs_init();
 void vfs_register_block(const char* name, struct block_driver* drv);
 
 
+/**
+ * inode struct declaration
+ *
+ * The actual definition -- layout -- obviously depends on the filesystem and will
+ * be defined within its source code.
+ *
+ * However, the VFS still operates on inodes, which it can modify and retrieve using
+ * fs-specific hooks that are provided to it when a filesystem is registered.
+ *
+ */
+struct inode;
 
 
-void vfs_register_fs(const char* name);
+/**
+ * VFS inode
+ *
+ * This is the inode structure that the VFS exposes out to the rest of the kernel,
+ * in that vfs_inodes are manipulated by the public VFS functions.
+ *
+ * The vfs_inode exists as a thin wrapper over the actual filesystem inode and any
+ * operations are dispatched to the underlying filesystem.
+ *
+ */
+struct vfs_inode;
+
+
+struct fs_ops {
+    struct inode* (*namei)(const char*, struct block_driver*);
+    void (*writei)(struct inode*, const char* src, int size);
+    void (*readi)(struct inode*, char* dst, int off, int size);
+};
+
+void vfs_register_fs(const char* name, struct fs_ops* ops);
+void vfs_mount_fs(const char* path, const char* dev, const char* fs);
+
+struct vfs_inode* vfs_namei(const char* path);
+void vfs_writei(struct vfs_inode* vi, char* src, int size);
+void vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);

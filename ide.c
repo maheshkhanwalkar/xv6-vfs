@@ -75,15 +75,18 @@ ideinit(void)
   struct block_driver* drv = (void*)kalloc();
 
   // FIXME: actually read the partition table!!
+  //   TODO: look into how to read a sector from the disk without using an
+  //   interrupt, which we can't do because they are disabled (no IDT!)
   drv->info.b_start = 0;
   drv->info.b_end = 65535;
+  drv->device = 0;
 
   // Add function hooks
   drv->bread = ide_bread;
   drv->bwrite = ide_bwrite;
 
-  // TODO: register with VFS
-  vfs_register_block("/dev/sda", drv);
+  // Register with VFS
+  vfs_register_block("sda0", drv);
 
   // Check if disk 1 is present
   outb(0x1f6, 0xe0 | (1<<4));

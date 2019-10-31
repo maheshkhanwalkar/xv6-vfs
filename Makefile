@@ -9,7 +9,6 @@ OBJS = \
 	kalloc.o\
 	kbd.o\
 	lapic.o\
-	log.o\
 	main.o\
 	mp.o\
 	picirq.o\
@@ -30,6 +29,7 @@ OBJS = \
 	queue.o\
 	vfs.o\
 	map.o\
+	sfs.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf

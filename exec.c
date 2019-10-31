@@ -6,27 +6,29 @@
 #include "defs.h"
 #include "x86.h"
 #include "elf.h"
+#include "vfs.h"
 
 int
 exec(char *path, char **argv)
 {
-  /*char *s, *last;
-  int i, off;
-  uint argc, sz, sp, ustack[3+MAXARG+1];
-  struct elfhdr elf;
-  struct inode *ip;
-  struct proghdr ph;
-  pde_t *pgdir, *oldpgdir;
-  struct proc *curproc = myproc();
+  //char *s, *last;
+  //int i, off;
+  //uint argc, sz, sp, ustack[3+MAXARG+1];
+  //struct elfhdr elf;
+  struct vfs_inode *ip;
+  //struct proghdr ph;
+  //pde_t *pgdir, *oldpgdir;
+  //struct proc *curproc = myproc();
 
-  begin_op();*/
+  //begin_op();
 
-  /*if((ip = namei(path)) == 0){
-    end_op();
+  if((ip = vfs_namei(path)) == 0){
+    //end_op();
     cprintf("exec: fail\n");
     return -1;
   }
-  ilock(ip);
+
+  /*ilock(ip);
   pgdir = 0;
 
   // Check ELF header
