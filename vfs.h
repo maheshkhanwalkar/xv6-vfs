@@ -132,7 +132,7 @@ struct vfs_inode;
 struct fs_ops {
     struct inode* (*namei)(const char*, struct block_driver*);
     void (*writei)(struct inode*, const char* src, int size);
-    void (*readi)(struct inode*, char* dst, int off, int size);
+    int (*readi)(struct inode*, char* dst, int off, int size);
 };
 
 void vfs_register_fs(const char* name, struct fs_ops* ops);
@@ -140,4 +140,4 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs);
 
 struct vfs_inode* vfs_namei(const char* path);
 void vfs_writei(struct vfs_inode* vi, char* src, int size);
-void vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);
+int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);

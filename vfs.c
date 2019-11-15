@@ -176,3 +176,9 @@ struct vfs_inode* vfs_namei(const char* path)
     kfree(rel);
     return vi;
 }
+
+int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size)
+{
+    // call the underlying fs namei() routine
+    return vi->ops->readi(vi->ip, dst, off, size);
+}

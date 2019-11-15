@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+#include "vfs.h"
 
 struct buf;
 struct context;
@@ -185,7 +186,7 @@ int             allocuvm(pde_t*, uint, uint);
 int             deallocuvm(pde_t*, uint, uint);
 void            freevm(pde_t*);
 void            inituvm(pde_t*, char*, uint);
-int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
+int             loaduvm(pde_t*, char*, struct vfs_inode*, uint, uint);
 pde_t*          copyuvm(pde_t*, uint);
 void            switchuvm(struct proc*);
 void            switchkvm(void);

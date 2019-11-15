@@ -74,18 +74,31 @@ ideinit(void)
 
   struct block_driver* drv = (void*)kalloc();
 
-  // FIXME: actually read the partition table!!
-  //   TODO: look into how to read a sector from the disk without using an
-  //   interrupt, which we can't do because they are disabled (no IDT!)
+  // FIXME: actually find out big the disk is!!
+  //   TODO: look into how to get the number of sectors (in LBA) that the disk
+  //   supports and use that for b_end
   drv->info.b_start = 0;
   drv->info.b_end = 65535;
-  drv->device = 0;
+  drv->device = 1;
 
   // Add function hooks
   drv->bread = ide_bread;
   drv->bwrite = ide_bwrite;
 
+  // Read MBR from disk
+  // This requires us to temporarily enable interrupts, since ideintr() needs
+  // to be called to return us the MBR block
+  asm volatile("sti");
+  char* mbr = kalloc();
+  ide_bread(drv, mbr, 0);
+  asm volatile("cli");
+
+  // Parse MBR partition information
+  // TODO write this functionality
+
   // Register with VFS
+  // FIXME: register each partition with VFS, in addition to the block device
+  // as a whole
   vfs_register_block("sda0", drv);
 
   // Check if disk 1 is present
@@ -255,6 +268,15 @@ iderw(struct buf *b)
   release(&idelock);
 }
 
+static void busywait(struct spinlock* lk, int* cond)
+{
+    while(*cond != 1) {
+        release(lk);
+        for(int i = 0; i < 1000; i++);
+        acquire(lk);
+    }
+}
+
 static int ide_bread(struct block_driver* self, void* buffer, int b_num)
 {
   struct block* b = (void*)kalloc();
@@ -273,8 +295,14 @@ static int ide_bread(struct block_driver* self, void* buffer, int b_num)
     ide_commit(b);
   }
 
-  while(!b->done) {
-    sleep(b, &idelock);
+  if(myproc() == 0) {
+    busywait(&idelock, &(b->done));
+  }
+  else
+  {
+    while(!b->done) {
+      sleep(b, &idelock);
+    }
   }
 
   release(&idelock);
