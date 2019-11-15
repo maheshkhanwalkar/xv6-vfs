@@ -30,6 +30,7 @@ OBJS = \
 	vfs.o\
 	map.o\
 	sfs.o\
+	mbr.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf

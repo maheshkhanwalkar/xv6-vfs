@@ -14,6 +14,7 @@
 #include "buf.h"
 #include "vfs.h"
 #include "queue.h"
+#include "mbr.h"
 
 #define SECTOR_SIZE   512
 #define IDE_BSY       0x80
@@ -94,12 +95,34 @@ ideinit(void)
   asm volatile("cli");
 
   // Parse MBR partition information
-  // TODO write this functionality
+  int count = mbr_count(mbr);
 
-  // Register with VFS
-  // FIXME: register each partition with VFS, in addition to the block device
-  // as a whole
-  vfs_register_block("sda0", drv);
+  static const char* names[] = {
+    "sda0",
+    "sda1",
+    "sda2",
+    "sda3"
+  };
+
+  cprintf("%d\n", count);
+
+  for(int i = 0; i < count; i++) {
+    struct mbr_part curr;
+    mbr_get(mbr, i, &curr);
+
+    // Add function hooks
+    drv->bread = ide_bread;
+    drv->bwrite = ide_bwrite;
+
+    // Partition information
+    drv->info.b_start = curr.start;
+    drv->info.b_end = curr.end;
+    drv->device = 1;
+
+    // Register with VFS
+    vfs_register_block(names[i], drv);
+    drv++;
+  }
 
   // Check if disk 1 is present
   outb(0x1f6, 0xe0 | (1<<4));
@@ -305,7 +328,9 @@ static int ide_bread(struct block_driver* self, void* buffer, int b_num)
     }
   }
 
+  kfree((void*)b);
   release(&idelock);
+
   return 0;
 }
 
@@ -327,6 +352,8 @@ static int ide_bwrite(struct block_driver* self, void* buffer, int b_num)
     ide_commit(b);
   }
 
+  kfree((void*)b);
   release(&idelock);
+
   return 0;
 }
