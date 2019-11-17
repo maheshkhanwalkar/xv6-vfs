@@ -46,10 +46,28 @@ static void write_inode(struct inode* ip, FILE* fp)
     fwrite(ip, sizeof(*ip), 1, fp);
 }
 
+static struct inode* make_inode(const char* name, struct superblock* sb)
+{
+    struct inode* ip = calloc(1, sizeof(*ip));
+
+    ip->inum = ffs(~(sb->finode[0])) - 1;
+    set_bit(&sb->finode[0], ip->inum);
+
+    ip->parent = 1;
+
+    for(int i = 0; i < SFS_MAX_CHILDREN; i++) {
+        ip->child[i] = -1;
+    }
+
+    strcpy(ip->name, name);
+    return ip;
+}
+
 int main(int argc, const char* argv[])
 {
     if(argc < 2) {
       printf("error. no disk image provided!\n");
+      return -1;
     }
 
     FILE* fp = fopen(argv[1], "r+b");
@@ -73,6 +91,21 @@ int main(int argc, const char* argv[])
     // no children (-1 inode)
     for(int i = 0; i < SFS_MAX_CHILDREN; i++) {
       root->child[i] = -1;
+    }
+
+    int pos = 0;
+
+    for(int i = 2; i < argc; i++) {
+        // ignore the leading underscore
+        const char* file = argv[i] + 1;
+        struct inode* ip = make_inode(file, sb);
+
+        write_inode(ip, fp);
+
+        root->child[pos] = ip->inum;
+        pos++;
+
+        free(ip);
     }
 
     // write root inode

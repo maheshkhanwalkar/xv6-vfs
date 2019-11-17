@@ -79,7 +79,7 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs)
         panic("cannot find filesystem\n");
     }
 
-    bind->sb = bind->ops->read_sb(bind->drv);
+    bind->sb = bind->ops->readsb(bind->drv);
 
     if(!bind->sb) {
         panic("cannot mount filesystem -- wrong type or corrupted\n");
@@ -92,6 +92,7 @@ struct vfs_inode {
     struct inode* ip;
     struct fs_ops* ops;
     struct block_driver* drv;
+    struct superblock* sb;
 };
 
 static const char* vfs_rpath(const char* path)
@@ -187,7 +188,10 @@ struct vfs_inode* vfs_namei(const char* path)
 
     vi->drv = bind->drv;
     vi->ops = bind->ops;
-    vi->ip = bind->ops->namei(rel, vi->drv);
+    vi->sb = bind->sb;
+
+    // get underlying inode
+    vi->ip = bind->ops->namei(rel, vi->sb, vi->drv);
 
     kfree(rel);
     return vi;

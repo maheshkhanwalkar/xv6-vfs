@@ -32,7 +32,7 @@ struct inode {
     int valid;
 };
 
-struct superblock* sfs_read_sb(struct block_driver* drv)
+struct superblock* sfs_readsb(struct block_driver* drv)
 {
     struct superblock* sb = (void*)kalloc();
     drv->bread(drv, sb, 0);
@@ -46,14 +46,78 @@ struct superblock* sfs_read_sb(struct block_driver* drv)
     return sb;
 }
 
-struct inode* sfs_namei(const char* path, struct block_driver* drv)
+void sfs_writesb(struct superblock* sb, struct block_driver* drv)
 {
-    // lazy initialisation -- don't actually read from disk yet
-    struct inode* ip = (void*)kalloc();
-    ip->drv = drv;
-    ip->valid = 0;
+    drv->bwrite(drv, sb, 0);
+}
 
-    return ip;
+static int slen(const char* path)
+{
+    int count = 0;
+
+    while(*path != '/' && *path != '\0') {
+        path++;
+        count++;
+    }
+
+    return count;
+}
+
+struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_driver* drv)
+{
+    struct inode* root = (void*)kalloc();
+    struct inode* tmp = root + 1;
+
+    drv->bread(drv, root, sb->root);
+
+    // sfs_namei("/", ...)
+    if(path[0] == '/' && path[1] == '\0') {
+        root->drv = drv;
+        root->valid = 1;
+
+        return root;
+    }
+
+    path++;
+
+    while(1)
+    {
+        int len = slen(path);
+        struct inode* old = root;
+
+        for(int i = 0; i < SFS_MAX_CHILDREN; i++)
+        {
+            if(root->child[i] == -1)
+                break;
+
+            drv->bread(drv, tmp, root->child[i]);
+            int diff = strncmp(path, tmp->name, len);
+
+            // found a partial match
+            if(diff == 0 && strlen(tmp->name) == len)
+            {
+                // partial --> full match
+                if(path[len] == '\0') {
+                    root = tmp;
+
+                    root->drv = drv;
+                    root->valid = 1;
+
+                    return root;
+                }
+
+                root = tmp;
+                path += len;
+            }
+        }
+
+        // no matches
+        if(old == root) {
+            break;
+        }
+    }
+
+    return 0;
 }
 
 int sfs_readi(struct inode* ip, char* dst, int off, int size)
@@ -62,7 +126,9 @@ int sfs_readi(struct inode* ip, char* dst, int off, int size)
 }
 
 static struct fs_ops ops = {
-    .read_sb = sfs_read_sb,
+    .readsb = sfs_readsb,
+    .writesb = sfs_writesb,
+
     .namei = sfs_namei,
     .writei = 0,
     .readi = sfs_readi
