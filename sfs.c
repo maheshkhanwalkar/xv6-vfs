@@ -122,7 +122,48 @@ struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_dr
 
 int sfs_readi(struct inode* ip, char* dst, int off, int size)
 {
-    return 0;
+    // bad inode
+    if(ip == 0) {
+        return -1;
+    }
+
+    // figure out how many blocks to read
+    int start = off / VFS_BLOCK_SIZE;
+    int amt = (size + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+
+    off = off - start * VFS_BLOCK_SIZE;
+    int pos = 0;
+
+    if(off != 0) {
+        char block[VFS_BLOCK_SIZE];
+        ip->drv->bread(ip->drv, block, ip->indir[start]);
+
+        int diff = size > VFS_BLOCK_SIZE ? VFS_BLOCK_SIZE - off : size;
+        memmove(dst, block + off, diff);
+
+        pos += diff;
+        size -= diff;
+    }
+
+    for(int i = 0; i < amt; i++) {
+        // already processed this block
+        if(i == 0 && off != 0) {
+            start++;
+            continue;
+        }
+
+        char block[VFS_BLOCK_SIZE];
+        ip->drv->bread(ip->drv, block, ip->indir[start]);
+
+        int diff = size < VFS_BLOCK_SIZE ? size : VFS_BLOCK_SIZE;
+        memmove(dst + pos, block, diff);
+
+        start++;
+        pos += diff;
+        size -= diff;
+    }
+
+    return pos;
 }
 
 static struct fs_ops ops = {
