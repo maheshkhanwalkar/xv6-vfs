@@ -3,7 +3,7 @@
 
 #define SFS_MAX_LENGTH 32
 #define SFS_MAX_CHILDREN 16
-#define SFS_MAX_INDIRECT_BLOCKS 108
+#define SFS_MAX_INDIRECT_BLOCKS 64
 #define SFS_MAGIC 0x3F3C007
 
 enum sfs_type {
