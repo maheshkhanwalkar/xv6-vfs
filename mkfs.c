@@ -11,11 +11,13 @@
 #define SFS_MAX_LENGTH 32
 #define SFS_MAX_CHILDREN 16
 #define SFS_MAX_INDIRECT_BLOCKS 64
+#define SFS_SB_INODE_BITSIZE 4
+#define SFS_SB_BLOCK_BITSIZE 120
 
 struct superblock {
     int magic, root;
-    int finode[4];
-    int fblock[120];
+    int finode[SFS_SB_INODE_BITSIZE];
+    int fblock[SFS_SB_BLOCK_BITSIZE];
 };
 
 enum sfs_type {
@@ -50,8 +52,21 @@ static struct inode* make_inode(const char* name, struct superblock* sb)
 {
     struct inode* ip = calloc(1, sizeof(*ip));
 
-    ip->inum = ffs(~(sb->finode[0])) - 1;
-    set_bit(&sb->finode[0], ip->inum);
+    int fpos = 0;
+    ip->inum = ffs(~(sb->finode[fpos])) - 1;
+
+    while(ip->inum == -1) {
+        fpos++;
+
+        if(fpos >= SFS_SB_INODE_BITSIZE) {
+            printf("error. out of inodes!\n");
+            exit(-1);
+        }
+
+        ip->inum = ffs(~(sb->finode[fpos])) - 1;
+    }
+
+    set_bit(&sb->finode[fpos], ip->inum);
 
     ip->parent = 1;
 
@@ -77,10 +92,22 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
         char block[VFS_BLOCK_SIZE];
         memset(block, 0, VFS_BLOCK_SIZE);
 
-        int bit = ffs(~(sb->fblock[0])) - 1;
+        int fpos = 0;
+        int bit = ffs(~(sb->fblock[fpos])) - 1;
+
+        while(bit == -1) {
+            fpos++;
+
+            if(fpos >= SFS_SB_BLOCK_BITSIZE) {
+                printf("error. out of file blocks\n");
+                exit(-1);
+            }
+
+            bit = ffs(~(sb->fblock[fpos])) - 1;
+        }
 
         ip->indir[i] = bit + 128;
-        set_bit(&sb->fblock[0], bit);
+        set_bit(&sb->fblock[fpos], bit);
 
         fread(block, VFS_BLOCK_SIZE, 1, fp);
 

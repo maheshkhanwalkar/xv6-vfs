@@ -5,6 +5,8 @@
 #define SFS_MAX_CHILDREN 16
 #define SFS_MAX_INDIRECT_BLOCKS 64
 #define SFS_MAGIC 0x3F3C007
+#define SFS_SB_INODE_BITSIZE 4
+#define SFS_SB_BLOCK_BITSIZE 120
 
 enum sfs_type {
     SFS_INODE_DIR,
@@ -13,8 +15,8 @@ enum sfs_type {
 
 struct superblock {
     int magic, root;
-    int finode[4];
-    int fblock[120];
+    int finode[SFS_SB_INODE_BITSIZE];
+    int fblock[SFS_SB_BLOCK_BITSIZE];
 };
 
 struct inode {
