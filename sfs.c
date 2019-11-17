@@ -1,9 +1,10 @@
 #include "vfs.h"
 #include "defs.h"
 
+#define SFS_MAX_LENGTH 32
 #define SFS_MAX_CHILDREN 16
 #define SFS_MAX_INDIRECT_BLOCKS 108
-#define SFS_MAGIC 0x3F313C007
+#define SFS_MAGIC 0x3F3C007
 
 enum sfs_type {
     SFS_INODE_DIR,
@@ -18,10 +19,13 @@ struct superblock {
 
 struct inode {
     // on disk format
-    int type, num;
+    char name[SFS_MAX_LENGTH];
+    int type, inum;
+
+    int parent;
+
     int child[SFS_MAX_CHILDREN];
-    int parent, self;
-    int indir[108];
+    int indir[SFS_MAX_INDIRECT_BLOCKS];
 
     // additional in-memory fields
     struct block_driver* drv;
@@ -31,7 +35,7 @@ struct inode {
 struct superblock* sfs_read_sb(struct block_driver* drv)
 {
     struct superblock* sb = (void*)kalloc();
-    drv->bread(drv, sb, VFS_BLOCK_SIZE);
+    drv->bread(drv, sb, 0);
 
     // bad magic value (not SFS or corrupted!)
     if(sb->magic != SFS_MAGIC) {
