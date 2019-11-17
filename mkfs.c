@@ -63,6 +63,34 @@ static struct inode* make_inode(const char* name, struct superblock* sb)
     return ip;
 }
 
+static void write_blocks(struct inode* ip, struct superblock* sb, const char* file, FILE* fsp)
+{
+    FILE* fp = fopen(file, "rb");
+
+    fseek(fp, 0, SEEK_END);
+    long sz = ftell(fp);
+    rewind(fp);
+
+    int count = (sz + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+
+    for(int i = 0; i < count; i++) {
+        char block[VFS_BLOCK_SIZE];
+        memset(block, 0, VFS_BLOCK_SIZE);
+
+        int bit = ffs(~(sb->fblock[0])) - 1;
+
+        ip->indir[i] = bit + 1 + 128;
+        set_bit(&sb->fblock[0], bit);
+
+        fread(block, VFS_BLOCK_SIZE, 1, fp);
+
+        fseek(fsp, VFS_BLOCK_SIZE * ip->indir[i], 0);
+        fwrite(block, VFS_BLOCK_SIZE, 1, fsp);
+    }
+
+    fclose(fp);
+}
+
 int main(int argc, const char* argv[])
 {
     if(argc < 2) {
@@ -100,6 +128,10 @@ int main(int argc, const char* argv[])
         const char* file = argv[i] + 1;
         struct inode* ip = make_inode(file, sb);
 
+        // write out the blocks
+        write_blocks(ip, sb, file - 1, fp);
+
+        // write the inode
         write_inode(ip, fp);
 
         root->child[pos] = ip->inum;
