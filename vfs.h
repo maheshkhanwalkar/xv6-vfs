@@ -130,6 +130,7 @@ struct vfs_inode;
 
 
 struct fs_ops {
+    struct superblock* (*read_sb)(struct block_driver*);
     struct inode* (*namei)(const char*, struct block_driver*);
     void (*writei)(struct inode*, const char* src, int size);
     int (*readi)(struct inode*, char* dst, int off, int size);

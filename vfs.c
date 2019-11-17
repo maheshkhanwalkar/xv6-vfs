@@ -58,6 +58,7 @@ void vfs_register_fs(const char* name, struct fs_ops* ops)
 }
 
 struct fs_binding {
+    struct superblock* sb;
     struct fs_ops* ops;
     struct block_driver* drv;
 };
@@ -67,7 +68,22 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs)
     struct fs_binding* bind = (void*)kalloc();
 
     bind->drv = map_get(b_map, dev, hash, equal);
+
+    if(!bind->drv) {
+        panic("cannot find device\n");
+    }
+
     bind->ops = map_get(fs_map, fs, hash, equal);
+
+    if(!bind->ops) {
+        panic("cannot find filesystem\n");
+    }
+
+    bind->sb = bind->ops->read_sb(bind->drv);
+
+    if(!bind->sb) {
+        panic("cannot mount filesystem -- wrong type or corrupted\n");
+    }
 
     map_put(root_map, path, bind, hash, equal);
 }

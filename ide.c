@@ -87,12 +87,8 @@ ideinit(void)
   drv->bwrite = ide_bwrite;
 
   // Read MBR from disk
-  // This requires us to temporarily enable interrupts, since ideintr() needs
-  // to be called to return us the MBR block
-  asm volatile("sti");
   char* mbr = kalloc();
   ide_bread(drv, mbr, 0);
-  asm volatile("cli");
 
   // Parse MBR partition information
   int count = mbr_count(mbr);
