@@ -14,6 +14,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
+#include "vfs.h"
 
 static void consputc(int);
 
@@ -233,7 +234,7 @@ consoleintr(int (*getc)(void))
 }
 
 int
-consoleread(struct inode *ip, char *dst, int n)
+consoleread(char *dst, int n)
 {
   uint target;
   int c;
@@ -271,7 +272,7 @@ consoleread(struct inode *ip, char *dst, int n)
 }
 
 int
-consolewrite(struct inode *ip, char *buf, int n)
+consolewrite(const char *buf, int n)
 {
   int i;
 
@@ -285,15 +286,21 @@ consolewrite(struct inode *ip, char *buf, int n)
   return n;
 }
 
+static struct char_driver drv = {
+    .read = consoleread,
+    .write = consolewrite
+};
+
 void
 consoleinit(void)
 {
   initlock(&cons.lock, "console");
 
-  devsw[CONSOLE].write = consolewrite;
-  devsw[CONSOLE].read = consoleread;
+  //devsw[CONSOLE].write = consolewrite;
+  //devsw[CONSOLE].read = consoleread;
   cons.locking = 1;
 
+  vfs_register_char("console", &drv);
   ioapicenable(IRQ_KBD, 0);
 }
 

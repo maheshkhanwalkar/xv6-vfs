@@ -57,7 +57,7 @@ struct block_driver {
     int device;
 
     /**
-     * Read a sector from the block device
+     * Read a block from the block device
      *
      * @param self - pointer to the containing structure
      * @param buffer - destination buffer of the read
@@ -68,7 +68,7 @@ struct block_driver {
     int (*bread)(struct block_driver* self, void* buffer, int b_num);
 
     /**
-     * Write a sector to the block device
+     * Write a block to the block device
      *
      * @param self - pointer to the containing structure
      * @param buffer - data to write to the sector
@@ -77,6 +77,38 @@ struct block_driver {
      * @return number of bytes written (-1 on failure)
      */ 
     int (*bwrite)(struct block_driver* self, void* buffer, int b_num);
+};
+
+/**
+ * Character driver
+ *
+ * This struct specifies the required interface that all character drivers
+ * need to conform to, so that they can be used by higher levels of the filesystem stack
+ *
+ * Specifically, two operations need to be supported: read and write, which allow for a
+ * buffer to be read from and written to the underlying character device, respectively.
+ */
+struct char_driver {
+
+    /**
+     * Read bytes from the char device
+     *
+     * @param buffer - destination buffer of the read
+     * @param size - number of bytes to read
+     *
+     * @return number of bytes read (-1 on failure)
+     */
+    int (*read)(char* buffer, int size);
+
+    /**
+     * Write bytes to the char device
+     *
+     * @param buffer - source buffer of the write
+     * @param size - number of bytes to write
+     *
+     * @return number of bytes written (-1 on failure)
+     */
+    int (*write)(const char* buffer, int size);
 };
 
 /**
@@ -102,6 +134,18 @@ void vfs_init();
  */
 void vfs_register_block(const char* name, struct block_driver* drv);
 
+/**
+ * Register a character driver
+ *
+ * Associate a character driver with the VFS, using a uniquely identifying name,
+ * which allows it to be referenced.
+ *
+ *   e.g. vfs_register_char("console", &my_char_drv)
+ *
+ * This will be used later, if the particular character device is mounted onto the
+ * root partition as a special device.
+ */
+void vfs_register_char(const char* name, struct char_driver* drv);
 
 /**
  * inode struct declaration

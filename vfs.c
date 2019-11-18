@@ -2,7 +2,7 @@
 #include "map.h"
 #include "defs.h"
 
-static map_t b_map, fs_map, root_map;
+static map_t b_map, c_map, fs_map, root_map;
 
 static int hash(const void* key)
 {
@@ -39,6 +39,7 @@ static int equal(const void* first, const void* second)
 void vfs_init()
 {
     b_map = map_create();
+    c_map = map_create();
     fs_map = map_create();
     root_map = map_create();
 }
@@ -46,6 +47,11 @@ void vfs_init()
 void vfs_register_block(const char* name, struct block_driver* drv)
 {
     map_put(b_map, name, drv, hash, equal);
+}
+
+void vfs_register_char(const char* name, struct char_driver* drv)
+{
+    map_put(c_map, name, drv, hash, equal);
 }
 
 void vfs_register_fs(const char* name, struct fs_ops* ops)

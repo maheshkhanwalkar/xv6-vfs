@@ -25,13 +25,13 @@ main(void)
   seginit();       // segment descriptors
   picinit();       // disable pic
   ioapicinit();    // another interrupt controller
+  vfs_init();      // VFS subsystem
   consoleinit();   // console hardware
   uartinit();      // serial port
   pinit();         // process table
   tvinit();        // trap vectors
   binit();         // buffer cache
   fileinit();      // file table
-  vfs_init();      // VFS subsystem
   startothers();   // start other processors
   kinit2(P2V(4*1024*1024), P2V(PHYSTOP)); // must come after startothers()
   idtinit();       // load idt register
