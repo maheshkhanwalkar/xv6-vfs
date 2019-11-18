@@ -376,7 +376,7 @@ sys_chdir(void)
 {
   char *path;
   struct vfs_inode *ip = 0;
-  //struct proc *curproc = myproc();
+  struct proc *curproc = myproc();
   
   //begin_op();
   if(argstr(0, &path) < 0 || (ip = vfs_namei(path)) == 0){
@@ -392,7 +392,7 @@ sys_chdir(void)
   //iunlock(ip);
   //iput(curproc->cwd);
   //end_op();
-  //curproc->cwd = ip;
+  curproc->cwd = ip;
   return 0;
 }
 

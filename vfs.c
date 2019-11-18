@@ -2,7 +2,13 @@
 #include "map.h"
 #include "defs.h"
 
-static map_t b_map, c_map, fs_map, root_map;
+#define VFS_NORMAL 0
+#define VFS_SPECIAL 1
+
+#define VFS_DEV_BLOCK 0
+#define VFS_DEV_CHAR  1
+
+static map_t b_map, c_map, fs_map, root_map, s_map;
 
 static int hash(const void* key)
 {
@@ -42,6 +48,7 @@ void vfs_init()
     c_map = map_create();
     fs_map = map_create();
     root_map = map_create();
+    s_map = map_create();
 }
 
 void vfs_register_block(const char* name, struct block_driver* drv)
@@ -67,6 +74,12 @@ struct fs_binding {
     struct superblock* sb;
     struct fs_ops* ops;
     struct block_driver* drv;
+};
+
+struct dev_binding {
+    struct block_driver* bdrv;
+    struct char_driver* cdrv;
+    int type;
 };
 
 void vfs_mount_fs(const char* path, const char* dev, const char* fs)
@@ -99,6 +112,8 @@ struct vfs_inode {
     struct fs_ops* ops;
     struct block_driver* drv;
     struct superblock* sb;
+    struct dev_binding* dev;
+    int type;
 };
 
 static const char* vfs_rpath(const char* path)
@@ -178,6 +193,13 @@ static char* vfs_rel(const char* path, const char* rpath)
 
 struct vfs_inode* vfs_namei(const char* path)
 {
+    // Check for special device
+    struct vfs_inode* dev = map_get(s_map, path, hash, equal);
+
+    if(dev != 0) {
+        return dev;
+    }
+
     // Longest prefix matching path
     const char* rpath = vfs_rpath(path);
     struct fs_binding* bind = map_get(root_map, rpath, hash, equal);
@@ -195,6 +217,7 @@ struct vfs_inode* vfs_namei(const char* path)
     vi->drv = bind->drv;
     vi->ops = bind->ops;
     vi->sb = bind->sb;
+    vi->type = VFS_NORMAL;
 
     // get underlying inode
     vi->ip = bind->ops->namei(rel, vi->sb, vi->drv);
@@ -212,16 +235,69 @@ struct vfs_inode* vfs_namei(const char* path)
 
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size)
 {
+    // handle special devices
+    if(vi->type == VFS_SPECIAL) {
+        struct dev_binding* dev = vi->dev;
+
+        if(dev->type == VFS_DEV_CHAR) {
+            return dev->cdrv->read(dst, size);
+        }
+        else if(dev->type == VFS_DEV_BLOCK) {
+            // TODO do (off,size) -> block number translation
+        }
+        else {
+            panic("unknown special type for vfs inode\n");
+            return -1; // unreachable
+        }
+    }
+
     // call the underlying fs readi() routine
     return vi->ops->readi(vi->ip, dst, off, size);
 }
 
 int vfs_writei(struct vfs_inode* vi, char* src, int off, int size)
 {
+    // handle special devices
+    if(vi->type == VFS_SPECIAL) {
+        struct dev_binding* dev = vi->dev;
+
+        if(dev->type == VFS_DEV_CHAR) {
+            return dev->cdrv->write(src, size);
+        }
+        else if(dev->type == VFS_DEV_BLOCK) {
+            // TODO do (off,size) -> block number translation
+        }
+        else {
+            panic("unknown special type for vfs inode\n");
+            return -1; // unreachable
+        }
+    }
+
     // call the underlying fs writei() routine
     // writei() may have modified the in-memory superblock -- so writesb() back to disk
     int res = vi->ops->writei(vi->ip, vi->sb, src, off, size);
     vi->ops->writesb(vi->sb, vi->drv);
 
     return res;
+}
+
+void vfs_mount_char(const char* path, const char* dev)
+{
+    struct char_driver* drv = map_get(c_map, dev, hash, equal);
+
+    if(drv == 0) {
+        panic("unknown character device\n");
+    }
+
+    struct vfs_inode* vi = (void*)kalloc();
+    memset(vi, 0, sizeof(*vi));
+
+    vi->type = VFS_SPECIAL;
+    vi->dev = (struct dev_binding*)(vi + 1);
+
+    vi->dev->bdrv = 0;
+    vi->dev->cdrv = drv;
+    vi->dev->type = VFS_DEV_CHAR;
+
+    map_put(s_map, path, vi, hash, equal);
 }

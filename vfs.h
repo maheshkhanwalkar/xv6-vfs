@@ -185,6 +185,8 @@ struct fs_ops {
 void vfs_register_fs(const char* name, struct fs_ops* ops);
 void vfs_mount_fs(const char* path, const char* dev, const char* fs);
 
+void vfs_mount_char(const char* path, const char* dev);
+
 struct vfs_inode* vfs_namei(const char* path);
 int vfs_writei(struct vfs_inode* vi, char* src, int off, int size);
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);

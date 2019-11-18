@@ -40,6 +40,7 @@ main(void)
   ideinit();       // disk
   sfs_init();      // SFS filesystem
   vfs_mount_fs("/", "sda0", "sfs"); // mount root filesystem
+  vfs_mount_char("/dev/console", "console"); // mount console device
   userinit();      // first user process
 
   cli();           // disable interrupts
