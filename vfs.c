@@ -193,6 +193,13 @@ struct vfs_inode* vfs_namei(const char* path)
     // get underlying inode
     vi->ip = bind->ops->namei(rel, vi->sb, vi->drv);
 
+    if(vi->ip == 0) {
+        kfree((void*)vi);
+        kfree(rel);
+
+        return 0;
+    }
+
     kfree(rel);
     return vi;
 }

@@ -108,7 +108,7 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
             bit = ffs(~(sb->fblock[fpos])) - 1;
         }
 
-        ip->indir[i] = bit + 128;
+        ip->indir[i] = fpos * 32 + bit + 128;
         set_bit(&sb->fblock[fpos], bit);
 
         fread(block, VFS_BLOCK_SIZE, 1, fp);

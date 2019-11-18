@@ -137,8 +137,6 @@ int sfs_readi(struct inode* ip, char* dst, int off, int size)
     int start = off / VFS_BLOCK_SIZE;
     size = (off + size) > ip->size ? ip->size - off : size;
 
-    int amt = num_blocks(size);
-
     off = off - start * VFS_BLOCK_SIZE;
     int pos = 0;
 
@@ -153,10 +151,13 @@ int sfs_readi(struct inode* ip, char* dst, int off, int size)
         size -= diff;
     }
 
-    for(int i = 0; i < amt; i++) {
+    int i = 0;
+
+    while(size > 0) {
         // already processed this block
         if(i == 0 && off != 0) {
             start++;
+            i++;
             continue;
         }
 
@@ -223,7 +224,7 @@ static void allocate_block(struct superblock* sb, struct inode* ip, int size)
     set_bit(&sb->fblock[fpos], bit);
     int n_blocks = num_blocks(ip->size);
 
-    ip->indir[n_blocks + 1] = bit + 128;
+    ip->indir[n_blocks + 1] = fpos * 32 + bit + 128;
     ip->size = n_blocks * VFS_BLOCK_SIZE + size;
 }
 
@@ -265,10 +266,13 @@ int sfs_writei(struct inode* ip, struct superblock* sb, const char* src, int off
         size -= VFS_BLOCK_SIZE - diff;
     }
 
-    for(int i = 0; i < amt; i++) {
+    int i = 0;
+
+    while(size > 0) {
         // already processed this block
         if(i == 0 && off != 0) {
             start++;
+            i++;
             continue;
         }
 
