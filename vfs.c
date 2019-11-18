@@ -199,6 +199,16 @@ struct vfs_inode* vfs_namei(const char* path)
 
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size)
 {
-    // call the underlying fs namei() routine
+    // call the underlying fs readi() routine
     return vi->ops->readi(vi->ip, dst, off, size);
+}
+
+int vfs_writei(struct vfs_inode* vi, char* src, int off, int size)
+{
+    // call the underlying fs writei() routine
+    // writei() may have modified the in-memory superblock -- so writesb() back to disk
+    int res = vi->ops->writei(vi->ip, vi->sb, src, off, size);
+    vi->ops->writesb(vi->sb, vi->drv);
+
+    return res;
 }

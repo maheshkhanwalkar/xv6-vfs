@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "vfs.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -238,11 +239,11 @@ bad:
   return -1;
 }
 
-static struct inode*
+static struct vfs_inode*
 create(char *path, short type, short major, short minor)
 {
   //uint off;
-  struct inode *ip = 0;//, *dp;
+  struct vfs_inode *ip = 0;//, *dp;
   //char name[DIRSIZ];
 
   /*if((dp = nameiparent(path, name)) == 0)
@@ -289,7 +290,7 @@ sys_open(void)
   char *path;
   int fd, omode;
   struct file *f;
-  struct inode *ip = 0;
+  struct vfs_inode *ip = 0;
 
   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
     return -1;
@@ -298,21 +299,22 @@ sys_open(void)
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
-    if(ip == 0){
+    if(ip == 0) {
       //end_op();
       return -1;
     }
-  } else {
-    /*if((ip = namei(path)) == 0){
-      end_op();
+  }
+  else {
+    if((ip = vfs_namei(path)) == 0){
+      //end_op();
       return -1;
     }
-    ilock(ip);
-    if(ip->type == T_DIR && omode != O_RDONLY){
-      iunlockput(ip);
-      end_op();
-      return -1;
-    }*/
+    //ilock(ip);
+    //if(ip->type == T_DIR && omode != O_RDONLY){
+    //  iunlockput(ip);
+    //  end_op();
+    //  return -1;
+    //}
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -337,7 +339,7 @@ int
 sys_mkdir(void)
 {
   char *path;
-  struct inode *ip;
+  struct vfs_inode *ip;
 
   //begin_op();
   if(argstr(0, &path) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
@@ -352,7 +354,7 @@ sys_mkdir(void)
 int
 sys_mknod(void)
 {
-  struct inode *ip;
+  struct vfs_inode *ip;
   char *path;
   int major, minor;
 
@@ -373,20 +375,20 @@ int
 sys_chdir(void)
 {
   char *path;
-  struct inode *ip = 0;
+  struct vfs_inode *ip = 0;
   //struct proc *curproc = myproc();
   
   //begin_op();
-  if(argstr(0, &path) < 0 /*|| (ip = namei(path)) == 0*/){
+  if(argstr(0, &path) < 0 || (ip = vfs_namei(path)) == 0){
     //end_op();
     return -1;
   }
   //ilock(ip);
-  if(ip->type != T_DIR){
+  //if(ip->type != T_DIR){
     //iunlockput(ip);
     //end_op();
-    return -1;
-  }
+    //return -1;
+  //}
   //iunlock(ip);
   //iput(curproc->cwd);
   //end_op();

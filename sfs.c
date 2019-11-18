@@ -29,6 +29,8 @@ struct inode {
     int child[SFS_MAX_CHILDREN];
     int indir[SFS_MAX_INDIRECT_BLOCKS];
 
+    int n_child, size;
+
     // additional in-memory fields
     struct block_driver* drv;
     int valid;
@@ -87,11 +89,8 @@ struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_dr
         int len = slen(path);
         struct inode* old = root;
 
-        for(int i = 0; i < SFS_MAX_CHILDREN; i++)
+        for(int i = 0; i < root->n_child; i++)
         {
-            if(root->child[i] == -1)
-                break;
-
             drv->bread(drv, tmp, root->child[i]);
             int diff = strncmp(path, tmp->name, len);
 
@@ -122,16 +121,23 @@ struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_dr
     return 0;
 }
 
+static inline int num_blocks(int size)
+{
+    return (size + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+}
+
 int sfs_readi(struct inode* ip, char* dst, int off, int size)
 {
     // bad inode
-    if(ip == 0) {
+    if(ip == 0 || ip->type != SFS_INODE_FILE) {
         return -1;
     }
 
     // figure out how many blocks to read
     int start = off / VFS_BLOCK_SIZE;
-    int amt = (size + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+    size = (off + size) > ip->size ? ip->size - off : size;
+
+    int amt = num_blocks(size);
 
     off = off - start * VFS_BLOCK_SIZE;
     int pos = 0;
@@ -168,12 +174,132 @@ int sfs_readi(struct inode* ip, char* dst, int off, int size)
     return pos;
 }
 
+//
+// glibc implementation of ffs()
+//   FIXME: this is GPL'd so it will have to be removed, since the rest
+//   of this code is not under (nor do I want it to be) the GPL
+//
+static int ffs (int i)
+{
+  static const unsigned char table[] =
+    {
+      0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+      6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+      7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+      7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+      8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+      8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+      8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+      8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
+    };
+  unsigned int a;
+  unsigned int x = i & -i;
+
+  a = x <= 0xffff ? (x <= 0xff ? 0 : 8) : (x <= 0xffffff ?  16 : 24);
+
+  return table[x >> a] + a;
+}
+
+static inline void set_bit(int* map, int bit)
+{
+    *map |= (1 << bit);
+}
+
+static void allocate_block(struct superblock* sb, struct inode* ip, int size)
+{
+    int fpos = 0;
+    int bit = ffs(~(sb->fblock[fpos])) - 1;
+
+    while(bit == -1) {
+        fpos++;
+
+        if(fpos >= SFS_SB_BLOCK_BITSIZE) {
+            panic("sfs: out of file blocks\n");
+        }
+
+        bit = ffs(~(sb->fblock[fpos])) - 1;
+    }
+
+    set_bit(&sb->fblock[fpos], bit);
+    int n_blocks = num_blocks(ip->size);
+
+    ip->indir[n_blocks + 1] = bit + 128;
+    ip->size = n_blocks * VFS_BLOCK_SIZE + size;
+}
+
+int sfs_writei(struct inode* ip, struct superblock* sb, const char* src, int off, int size)
+{
+    // bad inode
+    if(ip == 0 || ip->type != SFS_INODE_FILE) {
+        return -1;
+    }
+
+    int start = off / VFS_BLOCK_SIZE;
+    int range = num_blocks(ip->size);
+
+    int diff =  off - (start * VFS_BLOCK_SIZE);
+    int amt = num_blocks(size - diff);
+
+    // too large -- exceeds the number of blocks allowed
+    if(start + amt > SFS_MAX_INDIRECT_BLOCKS) {
+        return -1;
+    }
+
+    // allocate empty blocks (if necessary)
+    while(start > num_blocks(ip->size)) {
+        allocate_block(sb, ip, VFS_BLOCK_SIZE);
+    }
+
+    off = off - start * VFS_BLOCK_SIZE;
+
+    int pos = 0;
+
+    if(off != 0) {
+        char block[VFS_BLOCK_SIZE];
+        ip->drv->bread(ip->drv, block, ip->indir[start]);
+
+        memmove(block + diff, src, VFS_BLOCK_SIZE - diff);
+        ip->drv->bwrite(ip->drv, block, ip->indir[start]);
+
+        pos += VFS_BLOCK_SIZE - diff;
+        size -= VFS_BLOCK_SIZE - diff;
+    }
+
+    for(int i = 0; i < amt; i++) {
+        // already processed this block
+        if(i == 0 && off != 0) {
+            start++;
+            continue;
+        }
+
+        char block[VFS_BLOCK_SIZE];
+        memset(block, 0, VFS_BLOCK_SIZE);
+
+        int diff = size < VFS_BLOCK_SIZE ? size : VFS_BLOCK_SIZE;
+
+        // partial write -- read block from disk
+        if(start < range && diff < VFS_BLOCK_SIZE) {
+            ip->drv->bread(ip->drv, block, ip->indir[start]);
+        }
+
+        memmove(block, src + pos, diff);
+        ip->drv->bwrite(ip->drv, block, ip->indir[start]);
+
+        start++;
+        pos += diff;
+        size -= diff;
+    }
+
+    ip->size += pos;
+    return pos;
+}
+
 static struct fs_ops ops = {
     .readsb = sfs_readsb,
     .writesb = sfs_writesb,
 
     .namei = sfs_namei,
-    .writei = 0,
+    .writei = sfs_writei,
     .readi = sfs_readi
 };
 

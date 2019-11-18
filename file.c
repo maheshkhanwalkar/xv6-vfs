@@ -96,20 +96,20 @@ filestat(struct file *f, struct stat *st)
 int
 fileread(struct file *f, char *addr, int n)
 {
-  //int r;
+  int r;
 
   if(f->readable == 0)
     return -1;
   if(f->type == FD_PIPE)
     return piperead(f->pipe, addr, n);
-  if(f->type == FD_INODE){
-    /*ilock(f->ip);
-    if((r = readi(f->ip, addr, f->off, n)) > 0)
+  if(f->type == FD_INODE) {
+
+    if((r = vfs_readi(f->ip, addr, f->off, n)) > 0)
       f->off += r;
-    iunlock(f->ip);*/
-    //return r;
-    return 0;
+
+    return r;
   }
+
   panic("fileread");
 }
 
@@ -118,7 +118,7 @@ fileread(struct file *f, char *addr, int n)
 int
 filewrite(struct file *f, char *addr, int n)
 {
-  //int r;
+  int r;
 
   if(f->writable == 0)
     return -1;
@@ -131,19 +131,19 @@ filewrite(struct file *f, char *addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
-    /*int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
+    int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
     int i = 0;
     while(i < n){
       int n1 = n - i;
       if(n1 > max)
         n1 = max;
 
-      begin_op();
-      ilock(f->ip);
-      if ((r = writei(f->ip, addr + i, f->off, n1)) > 0)
+      //begin_op();
+      //ilock(f->ip);
+      if ((r = vfs_writei(f->ip, addr + i, f->off, n1)) > 0)
         f->off += r;
-      iunlock(f->ip);
-      end_op();
+      //iunlock(f->ip);
+      //end_op();
 
       if(r < 0)
         break;
@@ -151,7 +151,7 @@ filewrite(struct file *f, char *addr, int n)
         panic("short filewrite");
       i += r;
     }
-    return i == n ? n : -1;*/
+    return i == n ? n : -1;
     return 0;
   }
   panic("filewrite");

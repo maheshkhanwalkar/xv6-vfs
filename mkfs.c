@@ -33,6 +33,8 @@ struct inode {
 
     int child[SFS_MAX_CHILDREN];
     int indir[SFS_MAX_INDIRECT_BLOCKS];
+
+    int n_child, size;
 };
 
 static inline void set_bit(int* map, int bit)
@@ -69,10 +71,9 @@ static struct inode* make_inode(const char* name, struct superblock* sb)
     set_bit(&sb->finode[fpos], ip->inum);
 
     ip->parent = 1;
-
-    for(int i = 0; i < SFS_MAX_CHILDREN; i++) {
-        ip->child[i] = -1;
-    }
+    ip->type = SFS_INODE_FILE;
+    ip->n_child = 0;
+    ip->size = 0;
 
     strcpy(ip->name, name);
     return ip;
@@ -86,6 +87,7 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
     long sz = ftell(fp);
     rewind(fp);
 
+    ip->size = sz;
     int count = (sz + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
 
     for(int i = 0; i < count; i++) {
@@ -143,11 +145,6 @@ int main(int argc, const char* argv[])
     root->inum = 1;
     root->parent = root->inum;
 
-    // no children (-1 inode)
-    for(int i = 0; i < SFS_MAX_CHILDREN; i++) {
-      root->child[i] = -1;
-    }
-
     int pos = 0;
 
     for(int i = 2; i < argc; i++) {
@@ -166,6 +163,8 @@ int main(int argc, const char* argv[])
 
         free(ip);
     }
+
+    root->n_child = pos;
 
     // write root inode
     write_inode(root, fp);
