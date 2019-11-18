@@ -149,11 +149,11 @@ int main(int argc, const char* argv[])
 
     for(int i = 2; i < argc; i++) {
         // ignore the leading underscore
-        const char* file = argv[i] + 1;
+        const char* file = argv[i][0] == '_' ? argv[i] + 1 : argv[i];
         struct inode* ip = make_inode(file, sb);
 
         // write out the blocks
-        write_blocks(ip, sb, file - 1, fp);
+        write_blocks(ip, sb, argv[i], fp);
 
         // write the inode
         write_inode(ip, fp);
