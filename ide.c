@@ -197,6 +197,15 @@ ide_commit(struct block* b)
   }
 }
 
+static void busywait(struct spinlock* lk, int* cond)
+{
+    while(*cond != 1) {
+        release(lk);
+        for(int i = 0; i < 1000; i++);
+        acquire(lk);
+    }
+}
+
 // Interrupt handler.
 void
 ideintr(void)
@@ -219,6 +228,7 @@ ideintr(void)
 
   if((b = queue_deq(q)) != 0) {
     ide_commit(b);
+    busywait(&idelock, &(b->done));
   }
 
   release(&idelock);
@@ -287,15 +297,6 @@ iderw(struct buf *b)
   release(&idelock);
 }
 
-static void busywait(struct spinlock* lk, int* cond)
-{
-    while(*cond != 1) {
-        release(lk);
-        for(int i = 0; i < 1000; i++);
-        acquire(lk);
-    }
-}
-
 static int ide_bread(struct block_driver* self, void* buffer, int b_num)
 {
   struct block* b = (void*)kalloc();
@@ -314,7 +315,8 @@ static int ide_bread(struct block_driver* self, void* buffer, int b_num)
     ide_commit(b);
   }
 
-  if(myproc() == 0) {
+  busywait(&idelock, &(b->done));
+  /*if(myproc() == 0) {
     busywait(&idelock, &(b->done));
   }
   else
@@ -322,7 +324,7 @@ static int ide_bread(struct block_driver* self, void* buffer, int b_num)
     while(!b->done) {
       sleep(b, &idelock);
     }
-  }
+  }*/
 
   kfree((void*)b);
   release(&idelock);
@@ -346,6 +348,7 @@ static int ide_bwrite(struct block_driver* self, void* buffer, int b_num)
   // process now, if its the only item in the queue
   if(queue_peek(q) == b) {
     ide_commit(b);
+    busywait(&idelock, &(b->done));
   }
 
   kfree((void*)b);

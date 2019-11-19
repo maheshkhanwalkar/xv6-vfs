@@ -166,32 +166,32 @@ sys_link(void)
 }
 
 // Is the directory dp empty except for "." and ".." ?
-static int
-isdirempty(struct inode *dp)
-{
-  int off;
-  struct dirent de = {};
+//static int
+//isdirempty(struct vfs_inode *dp)
+//{
+  //int off;
+  //struct dirent de = {};
 
-  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
+  //for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
     /*if(readi(dp, (char*)&de, off, sizeof(de)) != sizeof(de))
       panic("isdirempty: readi");*/
-    if(de.inum != 0)
-      return 0;
-  }
-  return 1;
-}
+    //if(de.inum != 0)
+     // return 0;
+  //}
+  //return 1;
+//}
 
 //PAGEBREAK!
 int
 sys_unlink(void)
 {
-  struct inode *ip = 0;//, *dp;
-  struct dirent de;
-  char /*name[DIRSIZ],*/ *path;
+  //struct inode *ip = 0;//, *dp;
+  //struct dirent de;
+  //char /*name[DIRSIZ],*/ *path;
   //uint off;
 
-  if(argstr(0, &path) < 0)
-    return -1;
+  //if(argstr(0, &path) < 0)
+  //  return -1;
 
   //begin_op();
   /*if((dp = nameiparent(path, name)) == 0){
@@ -209,14 +209,14 @@ sys_unlink(void)
     goto bad;*/
   //ilock(ip);
 
-  if(ip->nlink < 1)
+  /*if(ip->nlink < 1)
     panic("unlink: nlink < 1");
   if(ip->type == T_DIR && !isdirempty(ip)){
     //iunlockput(ip);
     goto bad;
-  }
+  }*/
 
-  memset(&de, 0, sizeof(de));
+  //memset(&de, 0, sizeof(de));
   /*if(writei(dp, (char*)&de, off, sizeof(de)) != sizeof(de))
     panic("unlink: writei");
   if(ip->type == T_DIR){
@@ -233,7 +233,7 @@ sys_unlink(void)
 
   return 0;
 
-bad:
+//bad:
   //iunlockput(dp);
   //end_op();
   return -1;

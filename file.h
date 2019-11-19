@@ -13,7 +13,7 @@ struct file {
 
 
 // in-memory copy of an inode
-struct inode {
+/*struct inode {
   uint dev;           // Device number
   uint inum;          // Inode number
   int ref;            // Reference count
@@ -26,7 +26,7 @@ struct inode {
   short nlink;
   uint size;
   uint addrs[NDIRECT+1];
-};
+};*/
 
 // table mapping major device number to
 // device functions

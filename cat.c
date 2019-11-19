@@ -15,7 +15,7 @@ cat(int fd)
       printf(2, "cat: write error\n");
       exit();
     }
-    sleep(10);
+    //sleep(1);
   }
   if(n < 0){
     printf(2, "cat: read error\n");

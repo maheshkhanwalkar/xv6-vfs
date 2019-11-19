@@ -230,8 +230,6 @@ static void allocate_block(struct superblock* sb, struct inode* ip)
 
 int sfs_writei(struct inode* ip, struct superblock* sb, const char* src, int off, int size)
 {
-    cprintf("sfs_writei called\n");
-
     // bad inode
     if(ip == 0 || ip->type != SFS_INODE_FILE) {
         return -1;
@@ -349,8 +347,6 @@ static struct inode* allocate_inode(struct superblock* sb, const char* name)
 
 struct inode* sfs_createi(const char* path, int type, struct superblock* sb, struct block_driver* drv)
 {
-    cprintf("sfs_createi called\n");
-
     int pos = last_slash(path);
     char* buffer = kalloc();
 
