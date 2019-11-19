@@ -82,6 +82,15 @@ struct dev_binding {
     int type;
 };
 
+struct vfs_inode {
+    struct inode* ip;
+    struct fs_ops* ops;
+    struct block_driver* drv;
+    struct superblock* sb;
+    struct dev_binding* dev;
+    int type;
+};
+
 void vfs_mount_fs(const char* path, const char* dev, const char* fs)
 {
     struct fs_binding* bind = (void*)kalloc();
@@ -89,7 +98,14 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs)
     bind->drv = map_get(b_map, dev, hash, equal);
 
     if(!bind->drv) {
-        panic("cannot find device\n");
+        // check if this is a special device path
+        struct vfs_inode* vi = map_get(s_map, dev, hash, equal);
+
+        if(vi == 0) {
+             panic("cannot find device\n");
+        }
+
+        bind->drv = vi->drv;
     }
 
     bind->ops = map_get(fs_map, fs, hash, equal);
@@ -106,15 +122,6 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs)
 
     map_put(root_map, path, bind, hash, equal);
 }
-
-struct vfs_inode {
-    struct inode* ip;
-    struct fs_ops* ops;
-    struct block_driver* drv;
-    struct superblock* sb;
-    struct dev_binding* dev;
-    int type;
-};
 
 static const char* vfs_rpath(const char* path)
 {

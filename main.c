@@ -42,6 +42,7 @@ main(void)
   vfs_mount_fs("/", "sda0", "sfs");           // mount root filesystem
   vfs_mount_char("/dev/console", "console");  // mount console device
   vfs_mount_block("/dev/sda0", "sda0");       // mount block device (partition)
+  vfs_mount_block("/dev/sda1", "sda1");       // mount block device (partition)
 
   userinit();      // first user process
 

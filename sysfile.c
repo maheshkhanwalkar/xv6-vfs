@@ -445,3 +445,22 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+int sys_mount(void)
+{
+  char* src;
+  char* path;
+  char* fs_type;
+
+  if(argstr(0, &src) < 0)
+      return -1;
+
+  if(argstr(1, &path) < 0)
+      return -1;
+
+  if(argstr(2, &fs_type) < 0)
+      return -1;
+
+  vfs_mount_fs(path, src, fs_type);
+  return 0;
+}
