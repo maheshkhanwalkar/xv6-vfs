@@ -117,7 +117,7 @@ fileread(struct file *f, char *addr, int n)
 int
 filewrite(struct file *f, char *addr, int n)
 {
-  int r;
+  //int r;
 
   if(f->writable == 0)
     return -1;
@@ -130,7 +130,9 @@ filewrite(struct file *f, char *addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
+
+    return vfs_writei(f->ip, addr, f->off, n);
+    /*int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
     int i = 0;
     while(i < n){
       int n1 = n - i;
@@ -151,7 +153,7 @@ filewrite(struct file *f, char *addr, int n)
       i += r;
     }
     return i == n ? n : -1;
-    return 0;
+    return 0;*/
   }
   panic("filewrite");
 }

@@ -13,6 +13,9 @@
 #define VFS_BLOCK_SIZE 512
 
 
+#define VFS_INODE_FILE 0
+#define VFS_INODE_DIR  1
+
 /**
  * Partition information
  *
@@ -178,6 +181,8 @@ struct fs_ops {
     void (*writesb)(struct superblock*, struct block_driver*);
 
     struct inode* (*namei)(const char*, struct superblock*, struct block_driver*);
+    struct inode* (*createi)(const char*, int type, struct superblock*, struct block_driver*);
+
     int (*writei)(struct inode*, struct superblock* sb, const char* src, int off, int size);
     int (*readi)(struct inode*, char* dst, int off, int size);
 };
@@ -188,5 +193,6 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs);
 void vfs_mount_char(const char* path, const char* dev);
 
 struct vfs_inode* vfs_namei(const char* path);
+struct vfs_inode* vfs_createi(const char* path, int type);
 int vfs_writei(struct vfs_inode* vi, char* src, int off, int size);
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);

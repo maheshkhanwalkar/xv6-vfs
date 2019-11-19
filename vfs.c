@@ -233,6 +233,51 @@ struct vfs_inode* vfs_namei(const char* path)
     return vi;
 }
 
+struct vfs_inode* vfs_createi(const char* path, int type)
+{
+    // Check for special device
+    struct vfs_inode* dev = map_get(s_map, path, hash, equal);
+
+    if(dev != 0) {
+        return dev;
+    }
+
+    // Longest prefix matching path
+    const char* rpath = vfs_rpath(path);
+    struct fs_binding* bind = map_get(root_map, rpath, hash, equal);
+
+    // bad path -- couldn't find a match in the VFS table
+    // return a NULL inode, which should raise a trap/fault somewhere
+    if(bind == 0) {
+        return 0;
+    }
+
+    // compute the relative path for the filesystem
+    char* rel = vfs_rel(path, rpath);
+    struct vfs_inode* vi = (void*)kalloc();
+
+    vi->drv = bind->drv;
+    vi->ops = bind->ops;
+    vi->sb = bind->sb;
+    vi->type = VFS_NORMAL;
+
+    // get underlying inode
+    vi->ip = bind->ops->createi(rel, type, vi->sb, vi->drv);
+
+    if(vi->ip == 0) {
+        kfree((void*)vi);
+        kfree(rel);
+
+        return 0;
+    }
+
+    kfree(rel);
+
+    // update superblock
+    bind->ops->writesb(vi->sb, bind->drv);
+    return vi;
+}
+
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size)
 {
     // handle special devices

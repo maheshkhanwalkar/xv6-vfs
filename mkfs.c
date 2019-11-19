@@ -35,6 +35,7 @@ struct inode {
     int indir[SFS_MAX_INDIRECT_BLOCKS];
 
     int n_child, size;
+    int n_blocks;
 };
 
 static inline void set_bit(int* map, int bit)
@@ -74,6 +75,7 @@ static struct inode* make_inode(const char* name, struct superblock* sb)
     ip->type = SFS_INODE_FILE;
     ip->n_child = 0;
     ip->size = 0;
+    ip->n_blocks = 0;
 
     strcpy(ip->name, name);
     return ip;
@@ -117,6 +119,7 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
         fwrite(block, VFS_BLOCK_SIZE, 1, fsp);
     }
 
+    ip->n_blocks += count;
     fclose(fp);
 }
 

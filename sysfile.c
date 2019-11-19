@@ -243,8 +243,10 @@ static struct vfs_inode*
 create(char *path, short type, short major, short minor)
 {
   //uint off;
-  struct vfs_inode *ip = 0;//, *dp;
+  //struct vfs_inode *ip = 0;//, *dp;
   //char name[DIRSIZ];
+
+  return vfs_createi(path, type == T_FILE ? VFS_INODE_FILE : VFS_INODE_DIR);
 
   /*if((dp = nameiparent(path, name)) == 0)
     return 0;
@@ -280,8 +282,6 @@ create(char *path, short type, short major, short minor)
     panic("create: dirlink");
 
   iunlockput(dp);*/
-
-  return ip;
 }
 
 int
@@ -297,7 +297,7 @@ sys_open(void)
 
   //begin_op();
 
-  if(omode & O_CREATE){
+  if(omode & O_CREATE) {
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0) {
       //end_op();
