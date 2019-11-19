@@ -288,10 +288,39 @@ int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size)
             return dev->cdrv->read(dst, size);
         }
         else if(dev->type == VFS_DEV_BLOCK) {
-            // TODO do (off,size) -> block number translation
+            // convert (off,size) -> block number translation
+            int start = off / VFS_BLOCK_SIZE;
+            int diff = off - start * VFS_BLOCK_SIZE;
+
+            // handle partial first block
+            int pos = 0;
+
+            if(diff != 0) {
+                char block[VFS_BLOCK_SIZE];
+                vi->drv->bread(vi->drv, block, start);
+
+                memmove(dst, block + diff, VFS_BLOCK_SIZE - diff);
+
+                size -= VFS_BLOCK_SIZE - diff;
+                pos += VFS_BLOCK_SIZE - diff;
+                start++;
+            }
+
+            while(size > 0) {
+                char block[VFS_BLOCK_SIZE];
+                diff = size > VFS_BLOCK_SIZE ? VFS_BLOCK_SIZE : size;
+
+                memmove(dst + pos, block, diff);
+
+                size -= diff;
+                pos += diff;
+                start++;
+            }
+
+            return pos;
         }
         else {
-            panic("unknown special type for vfs inode\n");
+            cprintf("unknown special type for vfs inode\n");
             return -1; // unreachable
         }
     }
@@ -310,11 +339,12 @@ int vfs_writei(struct vfs_inode* vi, char* src, int off, int size)
             return dev->cdrv->write(src, size);
         }
         else if(dev->type == VFS_DEV_BLOCK) {
-            // TODO do (off,size) -> block number translation
+            cprintf("writes to block devices are not permitted\n");
+            return -1;
         }
         else {
-            panic("unknown special type for vfs inode\n");
-            return -1; // unreachable
+            cprintf("unknown special type for vfs inode\n");
+            return -1;
         }
     }
 
@@ -343,6 +373,27 @@ void vfs_mount_char(const char* path, const char* dev)
     vi->dev->bdrv = 0;
     vi->dev->cdrv = drv;
     vi->dev->type = VFS_DEV_CHAR;
+
+    map_put(s_map, path, vi, hash, equal);
+}
+
+void vfs_mount_block(const char* path, const char* dev)
+{
+    struct block_driver* drv = map_get(b_map, dev, hash, equal);
+
+    if(drv == 0) {
+        panic("unknown block device\n");
+    }
+
+    struct vfs_inode* vi = (void*)kalloc();
+    memset(vi, 0, sizeof(*vi));
+
+    vi->type = VFS_SPECIAL;
+    vi->dev = (struct dev_binding*)(vi + 1);
+
+    vi->dev->bdrv = drv;
+    vi->dev->cdrv = 0;
+    vi->dev->type = VFS_DEV_BLOCK;
 
     map_put(s_map, path, vi, hash, equal);
 }

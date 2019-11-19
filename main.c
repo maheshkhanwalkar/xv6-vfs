@@ -38,8 +38,11 @@ main(void)
   sti();           // enable interrupts
   ideinit();       // disk
   sfs_init();      // SFS filesystem
-  vfs_mount_fs("/", "sda0", "sfs"); // mount root filesystem
-  vfs_mount_char("/dev/console", "console"); // mount console device
+
+  vfs_mount_fs("/", "sda0", "sfs");           // mount root filesystem
+  vfs_mount_char("/dev/console", "console");  // mount console device
+  vfs_mount_block("/dev/sda0", "sda0");       // mount block device (partition)
+
   userinit();      // first user process
 
   cli();           // disable interrupts

@@ -191,6 +191,7 @@ void vfs_register_fs(const char* name, struct fs_ops* ops);
 void vfs_mount_fs(const char* path, const char* dev, const char* fs);
 
 void vfs_mount_char(const char* path, const char* dev);
+void vfs_mount_block(const char* path, const char* dev);
 
 struct vfs_inode* vfs_namei(const char* path);
 struct vfs_inode* vfs_createi(const char* path, int type);

@@ -179,7 +179,7 @@ UPROGS=\
 	_zombie\
 
 fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img $(UPROGS) README
+	./mkfs fs.img _init _sh _cat _echo _wc _mkdir README
 
 -include *.d
 
