@@ -1,5 +1,4 @@
 OBJS = \
-	bio.o\
 	console.o\
 	exec.o\
 	file.o\
