@@ -461,6 +461,14 @@ int sys_mount(void)
   if(argstr(2, &fs_type) < 0)
       return -1;
 
-  vfs_mount_fs(path, src, fs_type);
+  // make a defensive copy -- since the vfs holds onto this pointer
+  // so keeping the user pointer is dangerous (and could change on us!)
+  char* equiv = kalloc();
+  int len = strlen(path);
+
+  strncpy(equiv, path, len);
+  equiv[len] = '\0';
+
+  vfs_mount_fs(equiv, src, fs_type);
   return 0;
 }

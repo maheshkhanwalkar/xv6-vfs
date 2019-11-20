@@ -105,7 +105,7 @@ void vfs_mount_fs(const char* path, const char* dev, const char* fs)
              panic("cannot find device\n");
         }
 
-        bind->drv = vi->drv;
+        bind->drv = vi->dev->bdrv;
     }
 
     bind->ops = map_get(fs_map, fs, hash, equal);
@@ -189,9 +189,19 @@ static char* vfs_rel(const char* path, const char* rpath)
     int len = strlen(path);
     char* buffer = (void*)kalloc();
 
-    buffer[0] = '/';
-    for(int i = 0; i < len; i++) {
-        buffer[i + 1] = path[i];
+    if(path[0] != '/') {
+        buffer[0] = '/';
+
+        for(int i = 0; i < len; i++) {
+            buffer[i + 1] = path[i];
+        }
+    }
+    else {
+        for(int i = 0; i < len; i++) {
+            buffer[i] = path[i];
+        }
+
+        buffer[len] = '\0';
     }
 
     buffer[len + 1] = '\0';

@@ -177,9 +177,10 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
+	_mount\
 
 fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img _init _sh _cat _echo _wc _mkdir README
+	./mkfs fs.img _init _sh _cat _echo _wc _mkdir _mount README
 
 -include *.d
 
