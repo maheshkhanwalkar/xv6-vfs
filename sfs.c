@@ -109,7 +109,7 @@ struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_dr
                 }
 
                 root = tmp;
-                path += len;
+                path += len + 1;
             }
         }
 
@@ -363,6 +363,10 @@ struct inode* sfs_createi(const char* path, int type, struct superblock* sb, str
     // bad parent path
     if(parent == 0) {
         return 0;
+    }
+
+    if(pos != 1) {
+        pos++;
     }
 
     struct inode* ip = allocate_inode(sb, path + pos);
