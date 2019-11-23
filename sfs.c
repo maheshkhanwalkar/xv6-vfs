@@ -110,6 +110,8 @@ struct inode* sfs_namei(const char* path, struct superblock* sb, struct block_dr
 
                 root = tmp;
                 path += len + 1;
+                len = slen(path);
+                i = -1;
             }
         }
 
