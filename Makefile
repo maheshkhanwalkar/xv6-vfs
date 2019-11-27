@@ -180,7 +180,7 @@ UPROGS=\
 	_mount\
 
 fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img _init _sh _cat _echo _wc _mkdir _mount README
+	./mkfs fs.img _init _sh _cat _echo _wc _mkdir _mount _ls README
 
 -include *.d
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <sys/wait.h>
 
 #define VFS_BLOCK_SIZE 512
 
@@ -123,6 +124,32 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
     fclose(fp);
 }
 
+#define DISK_SIZE (512 * 1024)
+
+void make_disk(const char* path)
+{
+    // create a blank disk image
+    FILE* fp = fopen(path, "wb");
+
+    char block[VFS_BLOCK_SIZE];
+    memset(block, 0, VFS_BLOCK_SIZE);
+
+    for(int i = 0; i < DISK_SIZE / VFS_BLOCK_SIZE; i++) {
+        fwrite(block, VFS_BLOCK_SIZE, 1, fp);
+    }
+
+    fflush(fp);
+    fclose(fp);
+
+    // format the disk image using a script
+    int res = system("./prep.sh");
+
+    if(res == -1) {
+        printf("error. script failed\n");
+        exit(-1);
+    }
+}
+
 int main(int argc, const char* argv[])
 {
     if(argc < 2) {
@@ -131,6 +158,18 @@ int main(int argc, const char* argv[])
     }
 
     FILE* fp = fopen(argv[1], "r+b");
+
+    // create a new disk image (if it doesn't exist)
+    if(fp == 0) {
+        make_disk(argv[1]);
+        fp = fopen(argv[1], "r+b");
+
+        // give up at this point
+        if(fp == 0) {
+            printf("still can't open disk image! giving up\n");
+            return -1;
+        }
+    }
 
     // create superblock
     struct superblock* sb = calloc(1, sizeof(*sb));
