@@ -93,6 +93,13 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
     ip->size = sz;
     int count = (sz + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
 
+    if(count > SFS_MAX_INDIRECT_BLOCKS) {
+        printf("error. file is too big, skipping\n");
+        fclose(fp);
+
+        return;
+    }
+
     for(int i = 0; i < count; i++) {
         char block[VFS_BLOCK_SIZE];
         memset(block, 0, VFS_BLOCK_SIZE);
@@ -217,6 +224,9 @@ int main(int argc, const char* argv[])
 
     fflush(fp);
     fclose(fp);
+
+    free(root);
+    free(sb);
 
     return 0;
 }
