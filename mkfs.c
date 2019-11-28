@@ -44,11 +44,11 @@ static inline void set_bit(int* map, int bit)
     *map |= (1 << bit);
 }
 
-static void write_inode(struct inode* ip, FILE* fp)
+static void write_inode(struct inode* ip, FILE* fp, int off)
 {
     int block = ip->inum + 1;
 
-    fseek(fp, block * VFS_BLOCK_SIZE, 0);
+    fseek(fp, off + block * VFS_BLOCK_SIZE, 0);
     fwrite(ip, sizeof(*ip), 1, fp);
 }
 
@@ -82,7 +82,7 @@ static struct inode* make_inode(const char* name, struct superblock* sb)
     return ip;
 }
 
-static void write_blocks(struct inode* ip, struct superblock* sb, const char* file, FILE* fsp)
+static void write_blocks(struct inode* ip, struct superblock* sb, const char* file, FILE* fsp, int off)
 {
     FILE* fp = fopen(file, "rb");
 
@@ -123,7 +123,7 @@ static void write_blocks(struct inode* ip, struct superblock* sb, const char* fi
 
         fread(block, VFS_BLOCK_SIZE, 1, fp);
 
-        fseek(fsp, VFS_BLOCK_SIZE * (ip->indir[i] + 1), 0);
+        fseek(fsp, off + VFS_BLOCK_SIZE * (ip->indir[i] + 1), 0);
         fwrite(block, VFS_BLOCK_SIZE, 1, fsp);
     }
 
@@ -157,10 +157,51 @@ void make_disk(const char* path)
     }
 }
 
+// MBR related structures
+struct part {
+    char status;
+    char f_chs[3]; // CHS of first sector
+    char type;
+    char l_chs[3]; // CHS of last sector
+    int f_lba;     // LBA of first sector
+    int count;     // Number of sectors
+}__attribute__((packed));
+
+struct mbr {
+    char boot0[218];
+    char timestamp[6];
+    char boot1[216];
+    int disk_sig;
+    short prot;
+    struct part p[4];
+    short boot; // 0x55AA
+}__attribute__((packed));
+
+
+struct mbr* mbr_read(FILE* fp)
+{
+    struct mbr* mbr = malloc(sizeof(*mbr));
+
+    rewind(fp);
+    fread(mbr, sizeof(*mbr), 1, fp);
+
+    return mbr;
+}
+
+int mbr_getoffset(struct mbr* mbr, int part)
+{
+    // bad or empty partition
+    if(part >= 4 || mbr->p[part].count == 0) {
+        return -1;
+    }
+
+    return (mbr->p[part].f_lba - 1) * 512;
+}
+
 int main(int argc, const char* argv[])
 {
-    if(argc < 2) {
-      printf("error. no disk image provided!\n");
+    if(argc < 3) {
+      printf("error. no disk image and/or partition provided!\n");
       return -1;
     }
 
@@ -176,6 +217,16 @@ int main(int argc, const char* argv[])
             printf("still can't open disk image! giving up\n");
             return -1;
         }
+    }
+
+    // partition to format
+    int part = atoi(argv[2]);
+    struct mbr* mbr = mbr_read(fp);
+    int off = mbr_getoffset(mbr, part);
+
+    if(off == -1) {
+        printf("error. bad partition number specified\n");
+        return -1;
     }
 
     // create superblock
@@ -196,16 +247,16 @@ int main(int argc, const char* argv[])
 
     int pos = 0;
 
-    for(int i = 2; i < argc; i++) {
+    for(int i = 3; i < argc; i++) {
         // ignore the leading underscore
         const char* file = argv[i][0] == '_' ? argv[i] + 1 : argv[i];
         struct inode* ip = make_inode(file, sb);
 
         // write out the blocks
-        write_blocks(ip, sb, argv[i], fp);
+        write_blocks(ip, sb, argv[i], fp, off);
 
         // write the inode
-        write_inode(ip, fp);
+        write_inode(ip, fp, off);
 
         root->child[pos] = ip->inum;
         pos++;
@@ -216,10 +267,10 @@ int main(int argc, const char* argv[])
     root->n_child = pos;
 
     // write root inode
-    write_inode(root, fp);
+    write_inode(root, fp, off);
 
     // write superblock
-    fseek(fp, VFS_BLOCK_SIZE, 0);
+    fseek(fp, off + VFS_BLOCK_SIZE, 0);
     fwrite(sb, sizeof(*sb), 1, fp);
 
     fflush(fp);

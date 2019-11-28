@@ -178,7 +178,8 @@ UPROGS=\
 	_mount\
 
 fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
+	./mkfs fs.img 0 README $(UPROGS)
+	./mkfs fs.img 1
 
 -include *.d
 
