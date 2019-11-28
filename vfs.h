@@ -201,6 +201,7 @@ struct fs_ops {
     void (*stati)(struct inode*, struct stat*);
     struct inode* (*childi)(struct inode*, int);
     const char* (*iname)(struct inode*, int full);
+    struct inode* (*parenti)(struct inode*);
 };
 
 void vfs_register_fs(const char* name, struct fs_ops* ops);
@@ -218,3 +219,5 @@ int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);
 void vfs_stati(struct vfs_inode* vi, struct stat* st);
 struct vfs_inode* vfs_childi(struct vfs_inode* vi, int child);
 const char* vfs_iname(struct vfs_inode* vi, int full);
+
+struct vfs_inode* vfs_parenti(struct vfs_inode* vi);

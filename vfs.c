@@ -420,6 +420,25 @@ const char* vfs_iname(struct vfs_inode* vi, int full)
     return vi->ops->iname(vi->ip, full);
 }
 
+struct vfs_inode* vfs_parenti(struct vfs_inode* vi)
+{
+    if(vi == 0) {
+        return 0;
+    }
+
+    // handle special devices -- parent is root
+    if(vi->type == VFS_SPECIAL) {
+        return vfs_namei("/");
+    }
+
+    // create vfs inode for parent
+    struct vfs_inode* vpi = (void*)kalloc();
+    memmove(vpi, vi, sizeof(*vpi));
+
+    vpi->ip = vpi->ops->parenti(vi->ip);
+    return vpi;
+}
+
 void vfs_mount_char(const char* path, const char* dev)
 {
     struct char_driver* drv = map_get(c_map, dev, hash, equal);

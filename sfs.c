@@ -417,6 +417,22 @@ const char* sfs_iname(struct inode* ip, int full)
     return ip->name;
 }
 
+struct inode* sfs_parenti(struct inode* ip)
+{
+    if(ip == 0) {
+        return 0;
+    }
+
+    int block = ip->parent;
+
+    struct inode* pip = (void*)kalloc();
+
+    ip->drv->bread(ip->drv, pip, block);
+    pip->drv = ip->drv;
+
+    return pip;
+}
+
 static struct fs_ops ops = {
     .readsb = sfs_readsb,
     .writesb = sfs_writesb,
@@ -427,7 +443,8 @@ static struct fs_ops ops = {
     .readi = sfs_readi,
     .stati = sfs_stati,
     .childi = sfs_childi,
-    .iname = sfs_iname
+    .iname = sfs_iname,
+    .parenti = sfs_parenti
 };
 
 void sfs_init()
