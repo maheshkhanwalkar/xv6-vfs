@@ -82,7 +82,8 @@ fileclose(struct file *f)
 int
 filestat(struct file *f, struct stat *st)
 {
-  if(f->type == FD_INODE){
+  if(f->type == FD_INODE) {
+    vfs_stati(f->ip, st);
     /*ilock(f->ip);
     stati(f->ip, st);
     iunlock(f->ip);*/

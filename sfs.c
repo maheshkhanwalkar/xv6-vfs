@@ -386,6 +386,14 @@ struct inode* sfs_createi(const char* path, int type, struct superblock* sb, str
     return ip;
 }
 
+void sfs_stati(struct inode* ip, struct stat* st)
+{
+    st->ino = ip->inum;
+    st->nlink = 1;
+    st->size = ip->size;
+    st->type = ip->type == SFS_INODE_DIR ? T_DIR : T_FILE;
+}
+
 static struct fs_ops ops = {
     .readsb = sfs_readsb,
     .writesb = sfs_writesb,
@@ -393,7 +401,8 @@ static struct fs_ops ops = {
     .namei = sfs_namei,
     .createi = sfs_createi,
     .writei = sfs_writei,
-    .readi = sfs_readi
+    .readi = sfs_readi,
+    .stati = sfs_stati
 };
 
 void sfs_init()

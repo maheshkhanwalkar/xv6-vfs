@@ -373,6 +373,19 @@ int vfs_writei(struct vfs_inode* vi, char* src, int off, int size)
     return res;
 }
 
+void vfs_stati(struct vfs_inode* vi, struct stat* st)
+{
+    if(vi->type == VFS_SPECIAL) {
+        memset(st, 0, sizeof(*st));
+        st->dev = T_DEV;
+
+        return;
+    }
+
+    // call the underlying fs stati() routine
+    vi->ops->stati(vi->ip, st);
+}
+
 void vfs_mount_char(const char* path, const char* dev)
 {
     struct char_driver* drv = map_get(c_map, dev, hash, equal);

@@ -1,6 +1,7 @@
 // VFS header
 
 #pragma once
+#include "stat.h"
 
 /**
  * The size of a block that is assumed/used by the VFS
@@ -176,6 +177,17 @@ struct inode;
 struct vfs_inode;
 
 
+/**
+ * Filesystem operations
+ *
+ * This struct contains all the necessary operations that a filesystem needs to support in
+ * order to registered with the VFS subsystem.
+ *
+ * Each filesystem should provide some implementation for each of the functions in the struct.
+ * However, it is up to the underlying filesystem to make it functional or a no-op, if it is not
+ * used or supported.
+ *
+ */
 struct fs_ops {
     struct superblock* (*readsb)(struct block_driver*);
     void (*writesb)(struct superblock*, struct block_driver*);
@@ -185,6 +197,7 @@ struct fs_ops {
 
     int (*writei)(struct inode*, struct superblock* sb, const char* src, int off, int size);
     int (*readi)(struct inode*, char* dst, int off, int size);
+    void (*stati)(struct inode*, struct stat*);
 };
 
 void vfs_register_fs(const char* name, struct fs_ops* ops);
@@ -197,3 +210,4 @@ struct vfs_inode* vfs_namei(const char* path);
 struct vfs_inode* vfs_createi(const char* path, int type);
 int vfs_writei(struct vfs_inode* vi, char* src, int off, int size);
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);
+void vfs_stati(struct vfs_inode* vi, struct stat* st);
