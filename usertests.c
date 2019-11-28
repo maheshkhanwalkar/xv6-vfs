@@ -2,7 +2,6 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#include "fs.h"
 #include "fcntl.h"
 #include "syscall.h"
 #include "traps.h"
@@ -183,6 +182,8 @@ writetest(void)
   }
   printf(stdout, "small file test ok\n");
 }
+
+#define MAXFILE 10
 
 void
 writetest1(void)

@@ -10,8 +10,8 @@
 #include "traps.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "fs.h"
-#include "buf.h"
+//#include "fs.h"
+//#include "buf.h"
 #include "vfs.h"
 #include "queue.h"
 #include "mbr.h"
@@ -38,11 +38,11 @@ struct block {
 // You must hold idelock while manipulating queue.
 
 static struct spinlock idelock;
-static struct buf *idequeue;
+//static struct buf *idequeue;
 static queue_t q;
 
 static int havedisk1;
-static void idestart(struct buf*);
+//static void idestart(struct buf*);
 
 // Hooks for VFS
 static int ide_bread(struct block_driver* self, void* buffer, int b_num);
@@ -134,7 +134,7 @@ ideinit(void)
 }
 
 // Start the request for b.  Caller must hold idelock.
-static void
+/*static void
 idestart(struct buf *b)
 {
   if(b == 0)
@@ -161,7 +161,7 @@ idestart(struct buf *b)
   } else {
     outb(0x1f7, read_cmd);
   }
-}
+}*/
 
 static void
 ide_commit(struct block* b)
@@ -264,7 +264,7 @@ ideintr(void)
 // Sync buf with disk.
 // If B_DIRTY is set, write buf to disk, clear B_DIRTY, set B_VALID.
 // Else if B_VALID is not set, read buf from disk, set B_VALID.
-void
+/*void
 iderw(struct buf *b)
 {
   struct buf **pp;
@@ -295,7 +295,7 @@ iderw(struct buf *b)
 
 
   release(&idelock);
-}
+}*/
 
 static int ide_bread(struct block_driver* self, void* buffer, int b_num)
 {

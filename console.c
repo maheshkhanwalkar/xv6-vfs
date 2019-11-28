@@ -8,7 +8,6 @@
 #include "traps.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "fs.h"
 #include "file.h"
 #include "memlayout.h"
 #include "mmu.h"
@@ -246,7 +245,6 @@ consoleread(char *dst, int n)
     while(input.r == input.w){
       if(myproc()->killed){
         release(&cons.lock);
-        //ilock(ip);
         return -1;
       }
       sleep(&input.r, &cons.lock);
@@ -266,7 +264,6 @@ consoleread(char *dst, int n)
       break;
   }
   release(&cons.lock);
-  //ilock(ip);
 
   return target - n;
 }
@@ -276,12 +273,10 @@ consolewrite(const char *buf, int n)
 {
   int i;
 
-  //iunlock(ip);
   acquire(&cons.lock);
   for(i = 0; i < n; i++)
     consputc(buf[i] & 0xff);
   release(&cons.lock);
-  //ilock(ip);
 
   return n;
 }
@@ -295,9 +290,6 @@ void
 consoleinit(void)
 {
   initlock(&cons.lock, "console");
-
-  //devsw[CONSOLE].write = consolewrite;
-  //devsw[CONSOLE].read = consoleread;
   cons.locking = 1;
 
   vfs_register_char("console", &drv);

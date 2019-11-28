@@ -1,7 +1,8 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#include "fs.h"
+
+#define DIRSIZ 14
 
 char*
 fmtname(char *path)
@@ -60,23 +61,9 @@ ls(char *path)
     }
 
     closedir(dp);
-
-    /*strcpy(buf, path);
-    p = buf+strlen(buf);
-    *p++ = '/';
-    while(read(fd, &de, sizeof(de)) == sizeof(de)){
-      if(de.ino == 0)
-        continue;
-      memmove(p, de.name, DIRSIZ);
-      p[DIRSIZ] = 0;
-      if(stat(buf, &st) < 0){
-        printf(1, "ls: cannot stat %s\n", buf);
-        continue;
-      }
-      printf(1, "%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
-    }*/
     break;
   }
+  
   close(fd);
 }
 
