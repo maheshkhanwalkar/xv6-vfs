@@ -1,3 +1,13 @@
+-------------------------------------------------------------------------------
+xv6-vfs is an "enhanced" version of xv6 with Virtual Filesystem Support (VFS)
+rather than the original filesystem layers approach. This was implemented as a
+final project for CS 3210 Operating Systems at Georgia Tech.
+
+The original filesystem code (fs.c and fs.h) has been completely removed and is
+replaced with VFS code (vfs.c and vfs.h) as well as SFS code (sfs.c), which is
+a custom, simplified Unix filesystem.
+
+--------------------------------------------------------------------------------
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
 Version 6 (v6).  xv6 loosely follows the structure and style of v6,
 but is implemented for a modern x86-based multiprocessor using ANSI C.
