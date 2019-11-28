@@ -295,37 +295,23 @@ sys_open(void)
   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
     return -1;
 
-  //begin_op();
-
   if(omode & O_CREATE) {
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0) {
-      //end_op();
       return -1;
     }
   }
   else {
-    if((ip = vfs_namei(path)) == 0){
-      //end_op();
+    if((ip = vfs_namei(path)) == 0) {
       return -1;
     }
-    //ilock(ip);
-    //if(ip->type == T_DIR && omode != O_RDONLY){
-    //  iunlockput(ip);
-    //  end_op();
-    //  return -1;
-    //}
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
       fileclose(f);
-    //iunlockput(ip);
-    //end_op();
     return -1;
   }
-  //iunlock(ip);
-  //end_op();
 
   f->type = FD_INODE;
   f->ip = ip;
@@ -341,13 +327,10 @@ sys_mkdir(void)
   char *path;
   struct vfs_inode *ip;
 
-  //begin_op();
-  if(argstr(0, &path) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
-    //end_op();
+  if(argstr(0, &path) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0) {
     return -1;
   }
-  //iunlockput(ip);
-  //end_op();
+
   return 0;
 }
 
@@ -358,16 +341,13 @@ sys_mknod(void)
   char *path;
   int major, minor;
 
-  //begin_op();
   if((argstr(0, &path)) < 0 ||
      argint(1, &major) < 0 ||
      argint(2, &minor) < 0 ||
      (ip = create(path, T_DEV, major, minor)) == 0){
-    //end_op();
     return -1;
   }
-  //iunlockput(ip);
-  //end_op();
+
   return 0;
 }
 
@@ -378,20 +358,10 @@ sys_chdir(void)
   struct vfs_inode *ip = 0;
   struct proc *curproc = myproc();
   
-  //begin_op();
   if(argstr(0, &path) < 0 || (ip = vfs_namei(path)) == 0){
-    //end_op();
     return -1;
   }
-  //ilock(ip);
-  //if(ip->type != T_DIR){
-    //iunlockput(ip);
-    //end_op();
-    //return -1;
-  //}
-  //iunlock(ip);
-  //iput(curproc->cwd);
-  //end_op();
+
   curproc->cwd = ip;
   return 0;
 }
@@ -471,4 +441,49 @@ int sys_mount(void)
 
   vfs_mount_fs(equiv, src, fs_type);
   return 0;
+}
+
+struct dirent {
+    int ino;
+    int size;
+    int type;
+    char name[256];
+};
+
+int sys_direntry(void)
+{
+    struct file* fp;
+    int fd;
+    int child;
+    struct dirent* de;
+
+    if(argfd(0, &fd, &fp) < 0)
+        return -1;
+
+    if(argint(1, &child) < 0)
+        return -1;
+
+    if(argptr(2, (char**)&de, sizeof(*de)) < 0)
+        return -1;
+
+    struct vfs_inode* vi = vfs_childi(fp->ip, child);
+
+    if(vi == 0) {
+        return -1;
+    }
+
+    struct stat st;
+    vfs_stati(vi, &st);
+
+    de->ino = st.ino;
+    de->size = st.size;
+    de->type = st.type;
+
+    const char* name = vfs_iname(vi, 0);
+    int len = strlen(name);
+
+    strncpy(de->name, name, len);
+    de->name[len] = '\0';
+
+    return 0;
 }

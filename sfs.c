@@ -394,6 +394,29 @@ void sfs_stati(struct inode* ip, struct stat* st)
     st->type = ip->type == SFS_INODE_DIR ? T_DIR : T_FILE;
 }
 
+struct inode* sfs_childi(struct inode* ip, int child)
+{
+    // invalid child number
+    if(child >= ip->n_child) {
+        return 0;
+    }
+
+    int block = ip->child[child];
+
+    struct inode* cip = (void*)kalloc();
+
+    ip->drv->bread(ip->drv, cip, block);
+    cip->drv = ip->drv;
+
+    return cip;
+}
+
+const char* sfs_iname(struct inode* ip, int full)
+{
+    // TODO: handle full path building
+    return ip->name;
+}
+
 static struct fs_ops ops = {
     .readsb = sfs_readsb,
     .writesb = sfs_writesb,
@@ -402,7 +425,9 @@ static struct fs_ops ops = {
     .createi = sfs_createi,
     .writei = sfs_writei,
     .readi = sfs_readi,
-    .stati = sfs_stati
+    .stati = sfs_stati,
+    .childi = sfs_childi,
+    .iname = sfs_iname
 };
 
 void sfs_init()

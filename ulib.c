@@ -103,3 +103,47 @@ memmove(void *vdst, void *vsrc, int n)
     *dst++ = *src++;
   return vdst;
 }
+
+typedef struct DIR {
+    int fd;
+    int child;
+} DIR;
+
+DIR* opendir(const char* name)
+{
+    DIR* dp = malloc(sizeof(*dp));
+
+    dp->fd = open((char*)name, 0);
+    dp->child = 0;
+
+    return dp;
+}
+
+void closedir(DIR* dp)
+{
+    if(dp == 0) {
+        return;
+    }
+
+    close(dp->fd);
+    free(dp);
+}
+
+struct dirent* readdir(DIR* dp)
+{
+    if(dp == 0) {
+      return 0;
+    }
+
+    struct dirent* de = malloc(sizeof(*de));
+    int res = direntry(dp->fd, dp->child, de);
+
+    // out of children or other error
+    if(res == -1) {
+        free(de);
+        return 0;
+    }
+
+    dp->child++;
+    return de;
+}

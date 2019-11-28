@@ -25,9 +25,8 @@ fmtname(char *path)
 void
 ls(char *path)
 {
-  char buf[512], *p;
+  char buf[512];//, *p;
   int fd;
-  struct dirent de;
   struct stat st;
 
   if((fd = open(path, 0)) < 0){
@@ -51,11 +50,22 @@ ls(char *path)
       printf(1, "ls: path too long\n");
       break;
     }
-    strcpy(buf, path);
+
+    DIR* dp = opendir(path);
+    struct dirent* de = 0;
+
+    while((de = readdir(dp))) {
+      printf(1, "%s %d %d %d\n", fmtname(de->name), de->type, de->ino, de->size);
+      free(de);
+    }
+
+    closedir(dp);
+
+    /*strcpy(buf, path);
     p = buf+strlen(buf);
     *p++ = '/';
     while(read(fd, &de, sizeof(de)) == sizeof(de)){
-      if(de.inum == 0)
+      if(de.ino == 0)
         continue;
       memmove(p, de.name, DIRSIZ);
       p[DIRSIZ] = 0;
@@ -64,7 +74,7 @@ ls(char *path)
         continue;
       }
       printf(1, "%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
-    }
+    }*/
     break;
   }
   close(fd);

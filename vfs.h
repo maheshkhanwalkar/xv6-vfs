@@ -197,7 +197,10 @@ struct fs_ops {
 
     int (*writei)(struct inode*, struct superblock* sb, const char* src, int off, int size);
     int (*readi)(struct inode*, char* dst, int off, int size);
+
     void (*stati)(struct inode*, struct stat*);
+    struct inode* (*childi)(struct inode*, int);
+    const char* (*iname)(struct inode*, int full);
 };
 
 void vfs_register_fs(const char* name, struct fs_ops* ops);
@@ -208,6 +211,10 @@ void vfs_mount_block(const char* path, const char* dev);
 
 struct vfs_inode* vfs_namei(const char* path);
 struct vfs_inode* vfs_createi(const char* path, int type);
+
 int vfs_writei(struct vfs_inode* vi, char* src, int off, int size);
 int vfs_readi(struct vfs_inode* vi, char* dst, int off, int size);
+
 void vfs_stati(struct vfs_inode* vi, struct stat* st);
+struct vfs_inode* vfs_childi(struct vfs_inode* vi, int child);
+const char* vfs_iname(struct vfs_inode* vi, int full);

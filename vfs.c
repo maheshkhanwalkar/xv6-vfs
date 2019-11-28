@@ -386,6 +386,40 @@ void vfs_stati(struct vfs_inode* vi, struct stat* st)
     vi->ops->stati(vi->ip, st);
 }
 
+struct vfs_inode* vfs_childi(struct vfs_inode* vi, int child)
+{
+    // special devices don't have children
+    if(vi->type == VFS_SPECIAL) {
+        return 0;
+    }
+
+    // call underlying fs childi() routine
+    struct inode* ip = vi->ops->childi(vi->ip, child);
+
+    if(ip == 0) {
+        return 0;
+    }
+
+    // build new vfs inode for the child
+    struct vfs_inode* vci = (void*)kalloc();
+
+    memmove(vci, vi, sizeof(*vi));
+    vci->ip = ip;
+
+    return vci;
+}
+
+const char* vfs_iname(struct vfs_inode* vi, int full)
+{
+    // invalid or special devices don't have names
+    if(vi == 0 || vi->type == VFS_SPECIAL) {
+        return 0;
+    }
+
+    // call underlying fs iname() routine
+    return vi->ops->iname(vi->ip, full);
+}
+
 void vfs_mount_char(const char* path, const char* dev)
 {
     struct char_driver* drv = map_get(c_map, dev, hash, equal);
