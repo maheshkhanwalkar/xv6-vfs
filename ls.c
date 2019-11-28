@@ -1,7 +1,8 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#include "fs.h"
+
+#define DIRSIZ 14
 
 char*
 fmtname(char *path)
@@ -25,9 +26,8 @@ fmtname(char *path)
 void
 ls(char *path)
 {
-  char buf[512], *p;
+  char buf[512];//, *p;
   int fd;
-  struct dirent de;
   struct stat st;
 
   if((fd = open(path, 0)) < 0){
@@ -51,22 +51,19 @@ ls(char *path)
       printf(1, "ls: path too long\n");
       break;
     }
-    strcpy(buf, path);
-    p = buf+strlen(buf);
-    *p++ = '/';
-    while(read(fd, &de, sizeof(de)) == sizeof(de)){
-      if(de.inum == 0)
-        continue;
-      memmove(p, de.name, DIRSIZ);
-      p[DIRSIZ] = 0;
-      if(stat(buf, &st) < 0){
-        printf(1, "ls: cannot stat %s\n", buf);
-        continue;
-      }
-      printf(1, "%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+
+    DIR* dp = opendir(path);
+    struct dirent* de = 0;
+
+    while((de = readdir(dp))) {
+      printf(1, "%s %d %d %d\n", fmtname(de->name), de->type, de->ino, de->size);
+      free(de);
     }
+
+    closedir(dp);
     break;
   }
+  
   close(fd);
 }
 

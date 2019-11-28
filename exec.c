@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "x86.h"
 #include "elf.h"
+#include "vfs.h"
 
 int
 exec(char *path, char **argv)
@@ -14,23 +15,24 @@ exec(char *path, char **argv)
   int i, off;
   uint argc, sz, sp, ustack[3+MAXARG+1];
   struct elfhdr elf;
-  struct inode *ip;
+  struct vfs_inode *ip;
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
 
-  begin_op();
+  //begin_op();
 
-  if((ip = namei(path)) == 0){
-    end_op();
+  if((ip = vfs_namei(path)) == 0){
+    //end_op();
     cprintf("exec: fail\n");
     return -1;
   }
-  ilock(ip);
+
+  //ilock(ip);
   pgdir = 0;
 
   // Check ELF header
-  if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
+  if(vfs_readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
   if(elf.magic != ELF_MAGIC)
     goto bad;
@@ -41,7 +43,7 @@ exec(char *path, char **argv)
   // Load program into memory.
   sz = 0;
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
-    if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
+    if(vfs_readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
       continue;
@@ -56,8 +58,8 @@ exec(char *path, char **argv)
     if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
-  iunlockput(ip);
-  end_op();
+  //iunlockput(ip);
+  //end_op();
   ip = 0;
 
   // Allocate two pages at the next page boundary.
@@ -106,9 +108,9 @@ exec(char *path, char **argv)
  bad:
   if(pgdir)
     freevm(pgdir);
-  if(ip){
+  /*if(ip){
     iunlockput(ip);
     end_op();
-  }
+  }*/
   return -1;
 }

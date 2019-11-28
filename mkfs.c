@@ -4,294 +4,280 @@
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <sys/wait.h>
 
-#define stat xv6_stat  // avoid clash with host struct stat
-#include "types.h"
-#include "fs.h"
-#include "stat.h"
-#include "param.h"
+#define VFS_BLOCK_SIZE 512
 
-#ifndef static_assert
-#define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
-#endif
+#define SFS_MAGIC 0x3F3C007
+#define SFS_MAX_LENGTH 32
+#define SFS_MAX_CHILDREN 16
+#define SFS_MAX_INDIRECT_BLOCKS 64
+#define SFS_SB_INODE_BITSIZE 4
+#define SFS_SB_BLOCK_BITSIZE 120
 
-#define NINODES 200
+struct superblock {
+    int magic, root;
+    int finode[SFS_SB_INODE_BITSIZE];
+    int fblock[SFS_SB_BLOCK_BITSIZE];
+};
 
-// Disk layout:
-// [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
+enum sfs_type {
+    SFS_INODE_DIR,
+    SFS_INODE_FILE
+};
 
-int nbitmap = FSSIZE/(BSIZE*8) + 1;
-int ninodeblocks = NINODES / IPB + 1;
-int nlog = LOGSIZE;
-int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
-int nblocks;  // Number of data blocks
+struct inode {
+    char name[SFS_MAX_LENGTH];
+    int type, inum;
 
-int fsfd;
-struct superblock sb;
-char zeroes[BSIZE];
-uint freeinode = 1;
-uint freeblock;
+    int parent;
 
+    int child[SFS_MAX_CHILDREN];
+    int indir[SFS_MAX_INDIRECT_BLOCKS];
 
-void balloc(int);
-void wsect(uint, void*);
-void winode(uint, struct dinode*);
-void rinode(uint inum, struct dinode *ip);
-void rsect(uint sec, void *buf);
-uint ialloc(ushort type);
-void iappend(uint inum, void *p, int n);
+    int n_child, size;
+    int n_blocks;
+};
 
-// convert to intel byte order
-ushort
-xshort(ushort x)
+static inline void set_bit(int* map, int bit)
 {
-  ushort y;
-  uchar *a = (uchar*)&y;
-  a[0] = x;
-  a[1] = x >> 8;
-  return y;
+    *map |= (1 << bit);
 }
 
-uint
-xint(uint x)
+static void write_inode(struct inode* ip, FILE* fp, int off)
 {
-  uint y;
-  uchar *a = (uchar*)&y;
-  a[0] = x;
-  a[1] = x >> 8;
-  a[2] = x >> 16;
-  a[3] = x >> 24;
-  return y;
+    int block = ip->inum + 1;
+
+    fseek(fp, off + block * VFS_BLOCK_SIZE, 0);
+    fwrite(ip, sizeof(*ip), 1, fp);
 }
 
-int
-main(int argc, char *argv[])
+static struct inode* make_inode(const char* name, struct superblock* sb)
 {
-  int i, cc, fd;
-  uint rootino, inum, off;
-  struct dirent de;
-  char buf[BSIZE];
-  struct dinode din;
+    struct inode* ip = calloc(1, sizeof(*ip));
 
+    int fpos = 0;
+    ip->inum = ffs(~(sb->finode[fpos])) - 1;
 
-  static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
+    while(ip->inum == -1) {
+        fpos++;
 
-  if(argc < 2){
-    fprintf(stderr, "Usage: mkfs fs.img files...\n");
-    exit(1);
-  }
+        if(fpos >= SFS_SB_INODE_BITSIZE) {
+            printf("error. out of inodes!\n");
+            exit(-1);
+        }
 
-  assert((BSIZE % sizeof(struct dinode)) == 0);
-  assert((BSIZE % sizeof(struct dirent)) == 0);
-
-  fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
-  if(fsfd < 0){
-    perror(argv[1]);
-    exit(1);
-  }
-
-  // 1 fs block = 1 disk sector
-  nmeta = 2 + nlog + ninodeblocks + nbitmap;
-  nblocks = FSSIZE - nmeta;
-
-  sb.size = xint(FSSIZE);
-  sb.nblocks = xint(nblocks);
-  sb.ninodes = xint(NINODES);
-  sb.nlog = xint(nlog);
-  sb.logstart = xint(2);
-  sb.inodestart = xint(2+nlog);
-  sb.bmapstart = xint(2+nlog+ninodeblocks);
-
-  printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
-         nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
-
-  freeblock = nmeta;     // the first free block that we can allocate
-
-  for(i = 0; i < FSSIZE; i++)
-    wsect(i, zeroes);
-
-  memset(buf, 0, sizeof(buf));
-  memmove(buf, &sb, sizeof(sb));
-  wsect(1, buf);
-
-  rootino = ialloc(T_DIR);
-  assert(rootino == ROOTINO);
-
-  bzero(&de, sizeof(de));
-  de.inum = xshort(rootino);
-  strcpy(de.name, ".");
-  iappend(rootino, &de, sizeof(de));
-
-  bzero(&de, sizeof(de));
-  de.inum = xshort(rootino);
-  strcpy(de.name, "..");
-  iappend(rootino, &de, sizeof(de));
-
-  for(i = 2; i < argc; i++){
-    assert(index(argv[i], '/') == 0);
-
-    if((fd = open(argv[i], 0)) < 0){
-      perror(argv[i]);
-      exit(1);
+        ip->inum = ffs(~(sb->finode[fpos])) - 1;
     }
 
-    // Skip leading _ in name when writing to file system.
-    // The binaries are named _rm, _cat, etc. to keep the
-    // build operating system from trying to execute them
-    // in place of system binaries like rm and cat.
-    if(argv[i][0] == '_')
-      ++argv[i];
+    set_bit(&sb->finode[fpos], ip->inum);
 
-    inum = ialloc(T_FILE);
+    ip->parent = 1;
+    ip->type = SFS_INODE_FILE;
+    ip->n_child = 0;
+    ip->size = 0;
+    ip->n_blocks = 0;
 
-    bzero(&de, sizeof(de));
-    de.inum = xshort(inum);
-    strncpy(de.name, argv[i], DIRSIZ);
-    iappend(rootino, &de, sizeof(de));
-
-    while((cc = read(fd, buf, sizeof(buf))) > 0)
-      iappend(inum, buf, cc);
-
-    close(fd);
-  }
-
-  // fix size of root inode dir
-  rinode(rootino, &din);
-  off = xint(din.size);
-  off = ((off/BSIZE) + 1) * BSIZE;
-  din.size = xint(off);
-  winode(rootino, &din);
-
-  balloc(freeblock);
-
-  exit(0);
+    strcpy(ip->name, name);
+    return ip;
 }
 
-void
-wsect(uint sec, void *buf)
+static void write_blocks(struct inode* ip, struct superblock* sb, const char* file, FILE* fsp, int off)
 {
-  if(lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE){
-    perror("lseek");
-    exit(1);
-  }
-  if(write(fsfd, buf, BSIZE) != BSIZE){
-    perror("write");
-    exit(1);
-  }
-}
+    FILE* fp = fopen(file, "rb");
 
-void
-winode(uint inum, struct dinode *ip)
-{
-  char buf[BSIZE];
-  uint bn;
-  struct dinode *dip;
+    fseek(fp, 0, SEEK_END);
+    long sz = ftell(fp);
+    rewind(fp);
 
-  bn = IBLOCK(inum, sb);
-  rsect(bn, buf);
-  dip = ((struct dinode*)buf) + (inum % IPB);
-  *dip = *ip;
-  wsect(bn, buf);
-}
+    ip->size = sz;
+    int count = (sz + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
 
-void
-rinode(uint inum, struct dinode *ip)
-{
-  char buf[BSIZE];
-  uint bn;
-  struct dinode *dip;
+    if(count > SFS_MAX_INDIRECT_BLOCKS) {
+        printf("warning. file is too big, skipping\n");
+        fclose(fp);
 
-  bn = IBLOCK(inum, sb);
-  rsect(bn, buf);
-  dip = ((struct dinode*)buf) + (inum % IPB);
-  *ip = *dip;
-}
-
-void
-rsect(uint sec, void *buf)
-{
-  if(lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE){
-    perror("lseek");
-    exit(1);
-  }
-  if(read(fsfd, buf, BSIZE) != BSIZE){
-    perror("read");
-    exit(1);
-  }
-}
-
-uint
-ialloc(ushort type)
-{
-  uint inum = freeinode++;
-  struct dinode din;
-
-  bzero(&din, sizeof(din));
-  din.type = xshort(type);
-  din.nlink = xshort(1);
-  din.size = xint(0);
-  winode(inum, &din);
-  return inum;
-}
-
-void
-balloc(int used)
-{
-  uchar buf[BSIZE];
-  int i;
-
-  printf("balloc: first %d blocks have been allocated\n", used);
-  assert(used < BSIZE*8);
-  bzero(buf, BSIZE);
-  for(i = 0; i < used; i++){
-    buf[i/8] = buf[i/8] | (0x1 << (i%8));
-  }
-  printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
-  wsect(sb.bmapstart, buf);
-}
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
-void
-iappend(uint inum, void *xp, int n)
-{
-  char *p = (char*)xp;
-  uint fbn, off, n1;
-  struct dinode din;
-  char buf[BSIZE];
-  uint indirect[NINDIRECT];
-  uint x;
-
-  rinode(inum, &din);
-  off = xint(din.size);
-  // printf("append inum %d at off %d sz %d\n", inum, off, n);
-  while(n > 0){
-    fbn = off / BSIZE;
-    assert(fbn < MAXFILE);
-    if(fbn < NDIRECT){
-      if(xint(din.addrs[fbn]) == 0){
-        din.addrs[fbn] = xint(freeblock++);
-      }
-      x = xint(din.addrs[fbn]);
-    } else {
-      if(xint(din.addrs[NDIRECT]) == 0){
-        din.addrs[NDIRECT] = xint(freeblock++);
-      }
-      rsect(xint(din.addrs[NDIRECT]), (char*)indirect);
-      if(indirect[fbn - NDIRECT] == 0){
-        indirect[fbn - NDIRECT] = xint(freeblock++);
-        wsect(xint(din.addrs[NDIRECT]), (char*)indirect);
-      }
-      x = xint(indirect[fbn-NDIRECT]);
+        return;
     }
-    n1 = min(n, (fbn + 1) * BSIZE - off);
-    rsect(x, buf);
-    bcopy(p, buf + off - (fbn * BSIZE), n1);
-    wsect(x, buf);
-    n -= n1;
-    off += n1;
-    p += n1;
-  }
-  din.size = xint(off);
-  winode(inum, &din);
+
+    for(int i = 0; i < count; i++) {
+        char block[VFS_BLOCK_SIZE];
+        memset(block, 0, VFS_BLOCK_SIZE);
+
+        int fpos = 0;
+        int bit = ffs(~(sb->fblock[fpos])) - 1;
+
+        while(bit == -1) {
+            fpos++;
+
+            if(fpos >= SFS_SB_BLOCK_BITSIZE) {
+                printf("error. out of file blocks\n");
+                exit(-1);
+            }
+
+            bit = ffs(~(sb->fblock[fpos])) - 1;
+        }
+
+        ip->indir[i] = fpos * 32 + bit + 128;
+        set_bit(&sb->fblock[fpos], bit);
+
+        fread(block, VFS_BLOCK_SIZE, 1, fp);
+
+        fseek(fsp, off + VFS_BLOCK_SIZE * (ip->indir[i] + 1), 0);
+        fwrite(block, VFS_BLOCK_SIZE, 1, fsp);
+    }
+
+    ip->n_blocks += count;
+    fclose(fp);
+}
+
+#define DISK_SIZE (512 * 1024)
+
+void make_disk(const char* path)
+{
+    // create a blank disk image
+    FILE* fp = fopen(path, "wb");
+
+    char block[VFS_BLOCK_SIZE];
+    memset(block, 0, VFS_BLOCK_SIZE);
+
+    for(int i = 0; i < DISK_SIZE / VFS_BLOCK_SIZE; i++) {
+        fwrite(block, VFS_BLOCK_SIZE, 1, fp);
+    }
+
+    fflush(fp);
+    fclose(fp);
+
+    // format the disk image using a script
+    int res = system("./prep.sh");
+
+    if(res == -1) {
+        printf("error. script failed\n");
+        exit(-1);
+    }
+}
+
+// MBR related structures
+struct part {
+    char status;
+    char f_chs[3]; // CHS of first sector
+    char type;
+    char l_chs[3]; // CHS of last sector
+    int f_lba;     // LBA of first sector
+    int count;     // Number of sectors
+}__attribute__((packed));
+
+struct mbr {
+    char boot0[218];
+    char timestamp[6];
+    char boot1[216];
+    int disk_sig;
+    short prot;
+    struct part p[4];
+    short boot; // 0x55AA
+}__attribute__((packed));
+
+
+struct mbr* mbr_read(FILE* fp)
+{
+    struct mbr* mbr = malloc(sizeof(*mbr));
+
+    rewind(fp);
+    fread(mbr, sizeof(*mbr), 1, fp);
+
+    return mbr;
+}
+
+int mbr_getoffset(struct mbr* mbr, int part)
+{
+    // bad or empty partition
+    if(part >= 4 || mbr->p[part].count == 0) {
+        return -1;
+    }
+
+    return (mbr->p[part].f_lba - 1) * 512;
+}
+
+int main(int argc, const char* argv[])
+{
+    if(argc < 3) {
+      printf("error. no disk image and/or partition provided!\n");
+      return -1;
+    }
+
+    FILE* fp = fopen(argv[1], "r+b");
+
+    // create a new disk image (if it doesn't exist)
+    if(fp == 0) {
+        make_disk(argv[1]);
+        fp = fopen(argv[1], "r+b");
+
+        // give up at this point
+        if(fp == 0) {
+            printf("still can't open disk image! giving up\n");
+            return -1;
+        }
+    }
+
+    // partition to format
+    int part = atoi(argv[2]);
+    struct mbr* mbr = mbr_read(fp);
+    int off = mbr_getoffset(mbr, part);
+
+    if(off == -1) {
+        printf("error. bad partition number specified\n");
+        return -1;
+    }
+
+    // create superblock
+    struct superblock* sb = calloc(1, sizeof(*sb));
+    sb->magic = SFS_MAGIC;
+    sb->root = 1;
+
+    // create root inode
+    set_bit(&sb->finode[0], 0);
+    set_bit(&sb->finode[0], 1);
+
+    struct inode* root = calloc(1, sizeof(*root));
+    strcpy(root->name, "/");
+
+    root->type = SFS_INODE_DIR;
+    root->inum = 1;
+    root->parent = root->inum;
+
+    int pos = 0;
+
+    for(int i = 3; i < argc; i++) {
+        // ignore the leading underscore
+        const char* file = argv[i][0] == '_' ? argv[i] + 1 : argv[i];
+        struct inode* ip = make_inode(file, sb);
+
+        // write out the blocks
+        write_blocks(ip, sb, argv[i], fp, off);
+
+        // write the inode
+        write_inode(ip, fp, off);
+
+        root->child[pos] = ip->inum;
+        pos++;
+
+        free(ip);
+    }
+
+    root->n_child = pos;
+
+    // write root inode
+    write_inode(root, fp, off);
+
+    // write superblock
+    fseek(fp, off + VFS_BLOCK_SIZE, 0);
+    fwrite(sb, sizeof(*sb), 1, fp);
+
+    fflush(fp);
+    fclose(fp);
+
+    free(root);
+    free(sb);
+
+    return 0;
 }

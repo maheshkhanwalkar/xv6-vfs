@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "vfs.h"
 
 struct {
   struct spinlock lock;
@@ -140,7 +141,7 @@ userinit(void)
   p->tf->eip = 0;  // beginning of initcode.S
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
-  p->cwd = namei("/");
+  p->cwd = vfs_namei("/");
 
   // this assignment to p->state lets other cores
   // run this process. the acquire forces the above
@@ -206,7 +207,8 @@ fork(void)
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
       np->ofile[i] = filedup(curproc->ofile[i]);
-  np->cwd = idup(curproc->cwd);
+
+  np->cwd = curproc->cwd;
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
@@ -242,9 +244,9 @@ exit(void)
     }
   }
 
-  begin_op();
-  iput(curproc->cwd);
-  end_op();
+  //begin_op();
+  //iput(curproc->cwd);
+  //end_op();
   curproc->cwd = 0;
 
   acquire(&ptable.lock);
@@ -405,8 +407,8 @@ forkret(void)
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
     first = 0;
-    iinit(ROOTDEV);
-    initlog(ROOTDEV);
+    //iinit(ROOTDEV);
+    //initlog(ROOTDEV);
   }
 
   // Return to "caller", actually trapret (see allocproc).

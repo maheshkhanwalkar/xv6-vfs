@@ -1,3 +1,28 @@
+
+--------------------------------------------------------------------------------
+xv6-vfs is an "enhanced" version of xv6 with Virtual Filesystem Support (VFS)
+rather than the original filesystem layers approach. This was implemented as my
+final project for CS 3210 -- Operating Systems @ Georgia Tech.
+
+The original filesystem code (fs.c and fs.h) has been completely removed and is
+replaced with VFS code (vfs.c and vfs.h) as well as SFS code (sfs.c), which is
+a custom, simplified Unix filesystem.
+
+The IDE support code (ide.c) was revamped to support disks with multiple
+partitions using the Master Boot Record (MBR) format. The detected partitions
+are registered on-boot with the VFS subsystem.
+
+The block cache (bio.c) code was removed completely. All blocks are read from
+and written to the disk directly -- there currently is NO caching mechanism in
+place. For the scope of this project, that is okay, but performance will not be
+very good.
+
+The logging (log.c) code was also removed. Once again, for the scope and
+purposes of this project, that is okay. However, for fault-tolerance purposes,
+journaling support is crucial.
+--------------------------------------------------------------------------------
+
+
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
 Version 6 (v6).  xv6 loosely follows the structure and style of v6,
 but is implemented for a modern x86-based multiprocessor using ANSI C.

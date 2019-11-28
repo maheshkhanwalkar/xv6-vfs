@@ -5,6 +5,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
+#include "vfs.h"
 
 static void startothers(void);
 static void mpmain(void)  __attribute__((noreturn));
@@ -24,16 +25,28 @@ main(void)
   seginit();       // segment descriptors
   picinit();       // disable pic
   ioapicinit();    // another interrupt controller
+  vfs_init();      // VFS subsystem
   consoleinit();   // console hardware
   uartinit();      // serial port
   pinit();         // process table
   tvinit();        // trap vectors
-  binit();         // buffer cache
   fileinit();      // file table
-  ideinit();       // disk 
   startothers();   // start other processors
   kinit2(P2V(4*1024*1024), P2V(PHYSTOP)); // must come after startothers()
+  idtinit();       // load idt register
+
+  sti();           // enable interrupts
+  ideinit();       // disk
+  sfs_init();      // SFS filesystem
+
+  vfs_mount_fs("/", "sda0", "sfs");           // mount root filesystem
+  vfs_mount_char("/dev/console", "console");  // mount console device
+  vfs_mount_block("/dev/sda0", "sda0");       // mount block device (partition)
+  vfs_mount_block("/dev/sda1", "sda1");       // mount block device (partition)
+
   userinit();      // first user process
+
+  cli();           // disable interrupts
   mpmain();        // finish this processor's setup
 }
 

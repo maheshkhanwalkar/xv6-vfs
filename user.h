@@ -1,6 +1,13 @@
 struct stat;
 struct rtcdate;
 
+struct dirent {
+    int ino;
+    int size;
+    int type;
+    char name[256];
+};
+
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
@@ -23,8 +30,12 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int mount(const char* src, const char* target, const char* fs_type);
+int direntry(int fd, int child, struct dirent* de);
 
 // ulib.c
+typedef struct DIR DIR;
+
 int stat(char*, struct stat*);
 char* strcpy(char*, char*);
 void *memmove(void*, void*, int);
@@ -37,3 +48,7 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
+
+DIR* opendir(const char* name);
+void closedir(DIR* dp);
+struct dirent* readdir(DIR* dp);

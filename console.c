@@ -8,12 +8,12 @@
 #include "traps.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "fs.h"
 #include "file.h"
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
+#include "vfs.h"
 
 static void consputc(int);
 
@@ -233,19 +233,18 @@ consoleintr(int (*getc)(void))
 }
 
 int
-consoleread(struct inode *ip, char *dst, int n)
+consoleread(char *dst, int n)
 {
   uint target;
   int c;
 
-  iunlock(ip);
+  //iunlock(ip);
   target = n;
   acquire(&cons.lock);
   while(n > 0){
     while(input.r == input.w){
       if(myproc()->killed){
         release(&cons.lock);
-        ilock(ip);
         return -1;
       }
       sleep(&input.r, &cons.lock);
@@ -265,35 +264,35 @@ consoleread(struct inode *ip, char *dst, int n)
       break;
   }
   release(&cons.lock);
-  ilock(ip);
 
   return target - n;
 }
 
 int
-consolewrite(struct inode *ip, char *buf, int n)
+consolewrite(const char *buf, int n)
 {
   int i;
 
-  iunlock(ip);
   acquire(&cons.lock);
   for(i = 0; i < n; i++)
     consputc(buf[i] & 0xff);
   release(&cons.lock);
-  ilock(ip);
 
   return n;
 }
+
+static struct char_driver drv = {
+    .read = consoleread,
+    .write = consolewrite
+};
 
 void
 consoleinit(void)
 {
   initlock(&cons.lock, "console");
-
-  devsw[CONSOLE].write = consolewrite;
-  devsw[CONSOLE].read = consoleread;
   cons.locking = 1;
 
+  vfs_register_char("console", &drv);
   ioapicenable(IRQ_KBD, 0);
 }
 
